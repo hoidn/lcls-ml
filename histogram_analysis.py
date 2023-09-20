@@ -7,54 +7,24 @@ from scipy.ndimage import label
 #     """Load the data from the given file."""
 #     return imgs_thresh
 
+# def calculate_histograms(data, bin_boundaries, hist_start_bin):
+#     """Generate histograms for the data."""
+#     histograms = np.apply_along_axis(lambda x: np.histogram(x, bins=bin_boundaries)[0], 0, data)
+#     histograms = histograms + 1e-9
+#     histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
+#     return histograms[hist_start_bin:, :, :]
+
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
     """Generate histograms for the data."""
-    histograms = np.apply_along_axis(lambda x: np.histogram(x, bins=bin_boundaries)[0], 0, data)
+    expected_shape = (len(bin_boundaries) - 1, data.shape[1], data.shape[2])
+    histograms = np.zeros(expected_shape)
+    for i in range(data.shape[1]):
+        for j in range(data.shape[2]):
+            histogram, _ = np.histogram(data[:, i, j], bins=bin_boundaries)
+            histograms[:len(histogram), i, j] = histogram
     histograms = histograms + 1e-9
-    histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
-    return histograms[hist_start_bin:, :, :]
-
-# def calculate_histograms(data, bin_boundaries):
-#     """Generate histograms for the data."""
-#     expected_shape = (len(bin_boundaries) - 1, data.shape[1], data.shape[2])
-#     histograms = np.zeros(expected_shape)
-#     for i in range(data.shape[1]):
-#         for j in range(data.shape[2]):
-#             histogram, _ = np.histogram(data[:, i, j], bins=bin_boundaries)
-#             histograms[:len(histogram), i, j] = histogram
-#     histograms = histograms + 1e-9
-#     normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
-#     return normalized_histograms
-
-# def calculate_histograms(data, bin_boundaries):
-#     """Vectorized version to generate histograms for the data."""
-#     # Flattening the x and y dimensions
-#     reshaped_data = data.reshape(data.shape[0], -1)
-    
-#     # Getting bin indices for each data point
-#     bin_indices = np.digitize(reshaped_data, bin_boundaries) - 1
-#     # Ensure that indices are within valid range
-#     bin_indices = np.clip(bin_indices, 0, len(bin_boundaries) - 2)
-
-#     # Pre-allocating the histogram array
-#     histograms = np.zeros((len(bin_boundaries)-1, reshaped_data.shape[1]))
-
-#     # Filling the histogram using np.add.at for efficient bin count accumulation
-#     np.add.at(histograms, bin_indices, 1)
-
-#     histograms = histograms.reshape((len(bin_boundaries)-1, data.shape[1], data.shape[2]))
-#     histograms = histograms + 1e-9
-#     normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
-
-#     return normalized_histograms
-
-# # Benchmarking the original and vectorized histogram calculation
-# start_time = time.time()
-# histograms_vectorized = calculate_histograms_vectorized(ims_thresh, bin_boundaries)
-# end_time = time.time()
-# vectorized_duration = end_time - start_time
-
-# original_duration, vectorized_duration
+    normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
+    return normalized_histograms[hist_start_bin:, :, :]
 
 
 def get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
