@@ -1,21 +1,12 @@
 
 import numpy as np
+from numpy.random import choice
 from scipy.stats import wasserstein_distance
 from scipy.ndimage import label
+from sklearn.utils import resample
 
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation, label
-
-# def load_data(filepath):
-#     """Load the data from the given file."""
-#     return imgs_thresh
-
-# def calculate_histograms(data, bin_boundaries, hist_start_bin):
-#     """Generate histograms for the data."""
-#     histograms = np.apply_along_axis(lambda x: np.histogram(x, bins=bin_boundaries)[0], 0, data)
-#     histograms = histograms + 1e-9
-#     histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
-#     return histograms[hist_start_bin:, :, :]
 
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
     """Generate histograms for the data."""
@@ -28,7 +19,6 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
     histograms = histograms + 1e-9
     normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
     return normalized_histograms[hist_start_bin:, :, :]
-
 
 def get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     """Calculate the average histogram for the ROI."""
@@ -44,23 +34,42 @@ def calculate_emd_values(histograms, average_histogram):
             emd_values[i, j] = wasserstein_distance(histograms[:, i, j], average_histogram)
     return emd_values
 
-def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x_end, roi_y_start, roi_y_end, num_permutations=1000):
-    """Create the null distribution using histograms within the ROI."""
-    null_emd_values = []
-    for _ in range(num_permutations):
-        random_x_idx = np.random.choice(range(roi_x_start, roi_x_end))
-        random_y_idx = np.random.choice(range(roi_y_start, roi_y_end))
-        shuffled_histogram = histograms[:, random_x_idx, random_y_idx]
-        null_emd_values.append(wasserstein_distance(shuffled_histogram, average_histogram))
-    return np.array(null_emd_values)
+#def generate_null_distribution_old(histograms, average_histogram, roi_x_start, roi_x_end, roi_y_start, roi_y_end, num_permutations=1000):
+#    """Create the null distribution using histograms within the ROI."""
+#    null_emd_values = []
+#    for _ in range(num_permutations):
+#        random_x_idx = np.random.choice(range(roi_x_start, roi_x_end))
+#        random_y_idx = np.random.choice(range(roi_y_start, roi_y_end))
+#        shuffled_histogram = histograms[:, random_x_idx, random_y_idx]
+#        null_emd_values.append(wasserstein_distance(shuffled_histogram, average_histogram))
+#    return np.array(null_emd_values)
 
-# def calculate_p_values(emd_values, null_distribution):
-#     """Compute p-values based on the observed EMD values and the null distribution."""
-#     p_values = np.zeros_like(emd_values)
-#     for i in range(emd_values.shape[0]):
-#         for j in range(emd_values.shape[1]):
-#             p_values[i, j] = np.mean(emd_values[i, j] >= null_distribution)
-#     return p_values
+def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x_end, roi_y_start, roi_y_end, num_permutations=1000):
+    """
+    function to generate a null distribution of Earth Mover's Distance (EMD) values using bootstrapping.
+    """
+    null_emd_values = []
+    roi_histograms = histograms[:, roi_x_start:roi_x_end, roi_y_start:roi_y_end]
+    
+    # Number of bins in the histogram
+    num_bins = roi_histograms.shape[0]
+    
+    # Number of x and y indices in the ROI
+    num_x_indices = roi_x_end - roi_x_start
+    num_y_indices = roi_y_end - roi_y_start
+
+    for _ in range(num_permutations):
+        # Vectorized resampling of x, y indices for each value of the 0th index (each bin of the histogram)
+        random_x_indices = choice(range(num_x_indices), size=num_bins)
+        random_y_indices = choice(range(num_y_indices), size=num_bins)
+        
+        # Use the random indices to index roi_histograms directly
+        bootstrap_sample_histogram = roi_histograms[np.arange(num_bins), random_x_indices, random_y_indices]
+        
+        null_emd_value = wasserstein_distance(bootstrap_sample_histogram, average_histogram)
+        null_emd_values.append(null_emd_value)
+        
+    return np.array(null_emd_values)
 
 def calculate_p_values(emd_values, null_distribution):
     """Vectorized computation of p-values based on the observed EMD values and the null distribution."""
@@ -79,11 +88,14 @@ def identify_roi_connected_cluster(p_values, threshold, roi_x_start, roi_x_end, 
 
 # New Functions
 
-def sum_histograms_by_mask(histogram_array, binary_mask):
+def sum_histograms_by_mask(histogram_array, binary_mask, agg = 'mean'):
     # Apply the mask to select histograms
     masked_histograms = histogram_array[:, binary_mask]
     # Sum the selected histograms
-    summed_histogram = np.mean(masked_histograms, axis=1)
+    if agg == 'mean':
+        summed_histogram = np.mean(masked_histograms, axis=1)
+    elif agg == 'sum':
+        summed_histogram = np.sum(masked_histograms, axis=1)
     return summed_histogram
 
 def melt_negative_clusters(cluster_array, N=1):
@@ -113,16 +125,17 @@ def visualize_size_filtered_clusters(histogram_array, binary_mask):
     summed_histogram = sum_histograms_by_mask(histogram_array, binary_mask)
     visualize_clusters(binary_mask, 'Size-Filtered Negative Clusters')
 
-def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries, hist_start_bin, save_path = None):
+def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries, hist_start_bin, save_path = None,
+                                  agg = 'mean'):
     energies = bin_boundaries[hist_start_bin + 1:]
-    summed_histogram = sum_histograms_by_mask(histogram_array, binary_mask)
-    summed_histogram_signal = sum_histograms_by_mask(histogram_array, ~binary_mask)
+    summed_histogram = sum_histograms_by_mask(histogram_array, binary_mask, agg = agg)
+    summed_histogram_signal = sum_histograms_by_mask(histogram_array, ~binary_mask, agg = agg)
 #     aggregate_histogram = np.sum(histogram_array, axis=(1, 2))
 #     histogram_difference = aggregate_histogram - summed_histogram
 
     fig, axes = plt.subplots(3, 1, figsize=(12, 18))
 
-    axes[0].bar(energies, sum_histograms_by_mask(histogram_array, np.ones_like(binary_mask)), color='green', alpha=0.7)
+    axes[0].bar(energies, sum_histograms_by_mask(histogram_array, np.ones_like(binary_mask), agg = agg), color='green', alpha=0.7)
     axes[0].set_title('Aggregate Histogram with No Filtering')
     axes[0].set_xlabel('energy (keV)')
     axes[0].set_ylabel('mean frequency')
@@ -162,7 +175,7 @@ def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_st
     roi_cluster_label = labeled_array[seed_x, seed_y]
     roi_connected_cluster = (labeled_array == roi_cluster_label)
     
-    return emd_values, p_values, labeled_array, roi_connected_cluster
+    return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution
 
 def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     seed_x = (roi_x_start + roi_x_end) // 2
