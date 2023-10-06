@@ -8,7 +8,7 @@ from sklearn.utils import resample
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation, label
 
-def calculate_histograms(data, bin_boundaries, hist_start_bin):
+def calculate_histograms_old(data, bin_boundaries, hist_start_bin):
     """Generate histograms for the data."""
     expected_shape = (len(bin_boundaries) - 1, data.shape[1], data.shape[2])
     histograms = np.zeros(expected_shape)
@@ -18,6 +18,34 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
             histograms[:len(histogram), i, j] = histogram
     histograms = histograms + 1e-9
     normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
+    return normalized_histograms[hist_start_bin:, :, :]
+
+
+# Correct the binning process in the optimized function to properly exclude invalid indices
+def calculate_histograms(data, bin_boundaries, hist_start_bin):
+    """Generate histograms for the data using optimized methods."""
+    bins = len(bin_boundaries) - 1
+    rows, cols = data.shape[1], data.shape[2]
+    hist_shape = (bins, rows, cols)
+    
+    # Reshape the data for easier computation
+    reshaped_data = data.reshape(-1, rows * cols)
+    
+    # Perform digitization
+    bin_indices = np.digitize(reshaped_data, bin_boundaries) - 1
+    
+    # Initialize histograms
+    histograms = np.zeros(hist_shape, dtype=np.float64)
+    
+    # Populate histograms using bincount and sum along the zeroth axis
+    for i in range(rows * cols):
+        valid_indices = bin_indices[:, i] < bins  # Exclude indices that fall outside the bin range or equal to the last boundary
+        histograms[:, i // cols, i % cols] = np.bincount(bin_indices[:, i][valid_indices], minlength=bins)
+    
+    # Add small constant and normalize
+    histograms += 1e-9
+    normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
+    
     return normalized_histograms[hist_start_bin:, :, :]
 
 def get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
