@@ -1,27 +1,117 @@
 
 import numpy as np
 from numpy.random import choice
-from scipy.stats import wasserstein_distance
+# from scipy.stats import wasserstein_distance
 from scipy.ndimage import label
 from sklearn.utils import resample
 
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation, label
 
-def calculate_histograms_old(data, bin_boundaries, hist_start_bin):
-    """Generate histograms for the data."""
-    expected_shape = (len(bin_boundaries) - 1, data.shape[1], data.shape[2])
-    histograms = np.zeros(expected_shape)
-    for i in range(data.shape[1]):
-        for j in range(data.shape[2]):
-            histogram, _ = np.histogram(data[:, i, j], bins=bin_boundaries)
-            histograms[:len(histogram), i, j] = histogram
-    histograms = histograms + 1e-9
-    normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
-    return normalized_histograms[hist_start_bin:, :, :]
+# decorators.py
+
+import functools
+import hashlib
+import random
+import numpy as np
+
+# decorators.py
+
+import functools
+import hashlib
+import numpy as np
+import random
+
+def memoize_subsampled(func):
+    """Memoize a function by creating a hashable key using deterministically subsampled data."""
+    cache = {}
+    
+    @functools.wraps(func)
+    def wrapper(data, *args, **kwargs):
+        # Generate a hashable key from a deterministic subsample
+        shape_str = str(data.shape)  # Convert shape to string to use it as a seed
+        seed_value = int(hashlib.sha256(shape_str.encode()).hexdigest(), 16) % 10**8
+        random.seed(seed_value)
+        
+        subsample_size = min(100, data.shape[0])  # Limit the subsample size to a maximum of 100
+        subsample_indices = random.sample(range(data.shape[0]), subsample_size)
+        subsample = data[subsample_indices]
+        
+        hashable_key = hashlib.sha256(subsample.tobytes()).hexdigest()
+        
+        # Check cache
+        if hashable_key in cache:
+            return cache[hashable_key]
+        
+        # Calculate the result and store it in the cache
+        result = func(data, *args, **kwargs)
+        cache[hashable_key] = result
+        
+        return result
+    
+    return wrapper
+
+# TODO: test this version
+# import functools
+# import hashlib
+import json
+# import random
+# import numpy as np
+
+def memoize_general(func):
+    cache = {}
+    
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        composite_key_parts = []
+        
+        for arg in args:
+            if isinstance(arg, np.ndarray):
+                shape_str = str(arg.shape)
+                seed_value = int(hashlib.sha256(shape_str.encode()).hexdigest(), 16) % 10**8
+                random.seed(seed_value)
+                
+                subsample_size = min(100, arg.shape[0])
+                subsample_indices = random.sample(range(arg.shape[0]), subsample_size)
+                subsample = arg[subsample_indices]
+                
+                key_part = hashlib.sha256(subsample.tobytes()).hexdigest()
+            else:
+                key_part = hashlib.sha256(json.dumps(arg).encode()).hexdigest()
+            
+            composite_key_parts.append(key_part)
+        
+        composite_key = hashlib.sha256("".join(composite_key_parts).encode()).hexdigest()
+        
+        if composite_key in cache:
+            return cache[composite_key]
+        
+        result = func(*args, **kwargs)
+        cache[composite_key] = result
+        
+        return result
+    
+    return wrapper
 
 
-# Correct the binning process in the optimized function to properly exclude invalid indices
+# def calculate_histograms_old(data, bin_boundaries, hist_start_bin):
+#     """Generate histograms for the data."""
+#     expected_shape = (len(bin_boundaries) - 1, data.shape[1], data.shape[2])
+#     histograms = np.zeros(expected_shape)
+#     for i in range(data.shape[1]):
+#         for j in range(data.shape[2]):
+#             histogram, _ = np.histogram(data[:, i, j], bins=bin_boundaries)
+#             histograms[:len(histogram), i, j] = histogram
+#     histograms = histograms + 1e-9
+#     normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
+#     return normalized_histograms[hist_start_bin:, :, :]
+
+
+from numba import jit
+
+# # Optimizing the function using Numba
+# @memoize_subsampled
+# @jit(nopython=True)
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
     """Generate histograms for the data using optimized methods."""
     bins = len(bin_boundaries) - 1
@@ -32,7 +122,8 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
     reshaped_data = data.reshape(-1, rows * cols)
     
     # Perform digitization
-    bin_indices = np.digitize(reshaped_data, bin_boundaries) - 1
+    #bin_indices = np.digitize(reshaped_data, bin_boundaries) - 1
+    bin_indices = np.digitize(reshaped_data, bin_boundaries)
     
     # Initialize histograms
     histograms = np.zeros(hist_shape, dtype=np.float64)
@@ -48,11 +139,23 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
     
     return normalized_histograms[hist_start_bin:, :, :]
 
+calculate_histograms = jit(nopython=True)(calculate_histograms)
+calculate_histograms = memoize_subsampled(calculate_histograms)
+
+
+
+
 def get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     """Calculate the average histogram for the ROI."""
     roi_histograms = histograms[:, roi_x_start:roi_x_end, roi_y_start:roi_y_end]
     average_roi_histogram = np.mean(roi_histograms, axis=(1, 2))
     return average_roi_histogram / np.sum(average_roi_histogram)
+
+@jit(nopython=True)
+def wasserstein_distance(u, v):
+    cdf_u = np.cumsum(u)
+    cdf_v = np.cumsum(v)
+    return np.sum(np.abs(cdf_u - cdf_v))
 
 def calculate_emd_values(histograms, average_histogram):
     """Compute the Earth Mover's Distance for each histogram."""
@@ -61,16 +164,6 @@ def calculate_emd_values(histograms, average_histogram):
         for j in range(histograms.shape[2]):
             emd_values[i, j] = wasserstein_distance(histograms[:, i, j], average_histogram)
     return emd_values
-
-#def generate_null_distribution_old(histograms, average_histogram, roi_x_start, roi_x_end, roi_y_start, roi_y_end, num_permutations=1000):
-#    """Create the null distribution using histograms within the ROI."""
-#    null_emd_values = []
-#    for _ in range(num_permutations):
-#        random_x_idx = np.random.choice(range(roi_x_start, roi_x_end))
-#        random_y_idx = np.random.choice(range(roi_y_start, roi_y_end))
-#        shuffled_histogram = histograms[:, random_x_idx, random_y_idx]
-#        null_emd_values.append(wasserstein_distance(shuffled_histogram, average_histogram))
-#    return np.array(null_emd_values)
 
 def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x_end, roi_y_start, roi_y_end, num_permutations=1000):
     """
@@ -187,8 +280,7 @@ def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries,
 # Missing Functions
 
 def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
-                           roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
-                          threshold = .1):
+         roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000, threshold = .1):
     histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     average_histogram = get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end)
     emd_values = calculate_emd_values(histograms, average_histogram)
