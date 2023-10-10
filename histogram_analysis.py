@@ -1,21 +1,16 @@
 
 import numpy as np
 from numpy.random import choice
-# from scipy.stats import wasserstein_distance
 from scipy.ndimage import label
 from sklearn.utils import resample
 
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation, label
 
-# decorators.py
-
 import functools
 import hashlib
 import random
 import numpy as np
-
-# decorators.py
 
 import functools
 import hashlib
@@ -52,11 +47,7 @@ def memoize_subsampled(func):
     return wrapper
 
 # TODO: test this version
-# import functools
-# import hashlib
 import json
-# import random
-# import numpy as np
 
 def memoize_general(func):
     cache = {}
@@ -113,7 +104,7 @@ from numba import jit
 # @memoize_subsampled
 # @jit(nopython=True)
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
-    """Generate histograms for the data using optimized methods."""
+    """Generate histograms for the data using vectorized methods."""
     bins = len(bin_boundaries) - 1
     rows, cols = data.shape[1], data.shape[2]
     hist_shape = (bins, rows, cols)
@@ -133,17 +124,13 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
         valid_indices = bin_indices[:, i] < bins  # Exclude indices that fall outside the bin range or equal to the last boundary
         histograms[:, i // cols, i % cols] = np.bincount(bin_indices[:, i][valid_indices], minlength=bins)
     
-    # Add small constant and normalize
+    # Add small constant 
     histograms += 1e-9
-    normalized_histograms = histograms / (1e-9 + np.sum(histograms, axis=0))
+    normalized_histograms = histograms #/ (1e-9 + np.sum(histograms, axis=0))
     
     return normalized_histograms[hist_start_bin:, :, :]
-
 calculate_histograms = jit(nopython=True)(calculate_histograms)
 calculate_histograms = memoize_subsampled(calculate_histograms)
-
-
-
 
 def get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     """Calculate the average histogram for the ROI."""
@@ -167,7 +154,7 @@ def calculate_emd_values(histograms, average_histogram):
 
 def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x_end, roi_y_start, roi_y_end, num_permutations=1000):
     """
-    function to generate a null distribution of Earth Mover's Distance (EMD) values using bootstrapping.
+    generate a null distribution of Earth Mover's Distance (EMD) values using bootstrapping.
     """
     null_emd_values = []
     roi_histograms = histograms[:, roi_x_start:roi_x_end, roi_y_start:roi_y_end]
@@ -193,8 +180,8 @@ def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x
     return np.array(null_emd_values)
 
 def calculate_p_values(emd_values, null_distribution):
-    """Vectorized computation of p-values based on the observed EMD values and the null distribution."""
-    return np.mean(emd_values[:, :, np.newaxis] >= null_distribution, axis=2)
+    """calculate p-values based on the observed EMD values and the null distribution."""
+    return 1 - np.mean(emd_values[:, :, np.newaxis] >= null_distribution, axis=2)
 
 def identify_roi_connected_cluster(p_values, threshold, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     """Find the cluster connected to the ROI."""
@@ -206,8 +193,6 @@ def identify_roi_connected_cluster(p_values, threshold, roi_x_start, roi_x_end, 
     return labeled_array, labeled_array == roi_cluster_label
     #return labeled_array == roi_cluster_label
 
-
-# New Functions
 
 def sum_histograms_by_mask(histogram_array, binary_mask, agg = 'mean'):
     # Apply the mask to select histograms
@@ -277,7 +262,7 @@ def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries,
     else:
         plt.show()
 
-# Missing Functions
+# top level Functions
 
 def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
          roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000, threshold = .1):
@@ -304,5 +289,3 @@ def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y
     roi_connected_cluster = (labeled_array == roi_cluster_label)
     
     visualize_clusters(roi_connected_cluster, 'Cluster Connected to the ROI')
-
-
