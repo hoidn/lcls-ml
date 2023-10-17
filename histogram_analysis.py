@@ -101,8 +101,6 @@ def memoize_general(func):
 from numba import jit
 
 # # Optimizing the function using Numba
-# @memoize_subsampled
-# @jit(nopython=True)
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
     """Generate histograms for the data using vectorized methods."""
     bins = len(bin_boundaries) - 1
@@ -217,6 +215,68 @@ def filter_negative_clusters_by_size(cluster_array, M=10):
     small_cluster_mask = np.isin(labeled_array, small_clusters)
     return np.logical_or(cluster_array, small_cluster_mask)
 
+from functools import partial
+import matplotlib.pyplot as plt
+
+# from your_module import run_histogram_analysis, filter_negative_clusters_by_size
+
+# TODO refactor
+def rectify_filter_mask(mask, data):
+    imgs_sum = data.sum(axis = 0)
+    if mask.sum() == 0:
+        return ~mask
+    mean_1 = imgs_sum[mask].mean()
+    mean_0 = imgs_sum[~mask].mean()
+    if mean_1 < mean_0:
+        return ~mask
+    else:
+        return mask
+    
+from scipy.ndimage import label
+
+def infill_binary_array(data, array):
+    imgs_sum = data.sum(axis = 0)        
+    # Label connected components
+    labeled_array, num_features = label(
+        rectify_filter_mask(
+            array, data))
+    
+    # Find the largest component
+    largest_component = 0
+    largest_size = 0
+    for i in range(1, num_features + 1):
+        size = np.sum(labeled_array == i)
+        if size > largest_size:
+            largest_size = size
+            largest_component = i
+            
+    # Create new binary image
+    infilled_array = (labeled_array == largest_component)
+    
+    return infilled_array
+
+
+@memoize_general
+def precompute_analysis_data(data, bin_boundaries, hist_start_bin, roi_x_start,
+                    roi_x_end, roi_y_start, roi_y_end, M_value, threshold_values):
+    """
+    Precomputes the analysis outputs for different threshold values and stores them in a dictionary.
+    """
+    np.random.seed(1)
+    precomputed_data = {}
+    
+    for threshold in threshold_values:
+        _, p_values, _, roi_connected_cluster, _, infilled_clusters = run_histogram_analysis(
+            data, bin_boundaries, hist_start_bin, roi_x_start, roi_x_end, roi_y_start, roi_y_end, threshold=threshold)
+                
+        precomputed_data[threshold] = {
+            'p_threshold_mask': p_values < threshold,
+            'filtered_clusters': infilled_clusters,
+            'data': data
+        }
+    
+    return precomputed_data
+
 def visualize_clusters(cluster_array, title):
     plt.figure(figsize=(10, 8))
     plt.imshow(cluster_array, cmap='gray', origin='lower')
@@ -265,7 +325,8 @@ def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries,
 # top level Functions
 
 def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
-         roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000, threshold = .1):
+         roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
+         threshold = .1, cluster_size_threshold = 50):
     histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     average_histogram = get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end)
     emd_values = calculate_emd_values(histograms, average_histogram)
@@ -280,7 +341,16 @@ def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_st
     roi_cluster_label = labeled_array[seed_x, seed_y]
     roi_connected_cluster = (labeled_array == roi_cluster_label)
     
-    return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution
+    infilled_clusters = filter_negative_clusters_by_size(
+        rectify_filter_mask(
+            roi_connected_cluster, data), M=cluster_size_threshold)
+
+    # TODO refactor, this should go into run_histogram_analysis
+    # Also run_histogram_analysis should return a dict
+    infilled_clusters = infill_binary_array(data,
+                                            infilled_clusters)
+    
+    return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution, infilled_clusters
 
 def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     seed_x = (roi_x_start + roi_x_end) // 2
