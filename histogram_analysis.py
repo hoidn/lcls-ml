@@ -142,6 +142,7 @@ def wasserstein_distance(u, v):
     cdf_v = np.cumsum(v)
     return np.sum(np.abs(cdf_u - cdf_v))
 
+@jit(nopython=True)
 def calculate_emd_values(histograms, average_histogram):
     """Compute the Earth Mover's Distance for each histogram."""
     emd_values = np.zeros((histograms.shape[1], histograms.shape[2]))

@@ -19,17 +19,6 @@ def find_center_of_mass(infilled_clusters):
     """
     return center_of_mass(infilled_clusters)
 
-# # Calculate the center of mass for the given infilled_clusters data
-# center_of_mass_coordinates = find_center_of_mass(infilled_clusters)
-
-# def assign_angle(i, j, center_of_mass, num_spokes=20):
-#     """
-#     Correct the angle assignment to fall within [0, 2*pi] range and find the nearest spoke angle.
-#     """
-#     angle = np.arctan2(i - center_of_mass[0], j - center_of_mass[1]) % (2 * np.pi)
-#     angles = np.linspace(0, 2 * np.pi, num_spokes, endpoint=False)
-#     nearest_spoke_angle = min(angles, key=lambda x: min(abs(x - angle), 2 * np.pi - abs(x - angle)))
-#     return nearest_spoke_angle
 
 # Function to correct the angle assignment
 def correct_angle_assignment(i, j, center_of_mass, num_spokes=40):
@@ -38,49 +27,6 @@ def correct_angle_assignment(i, j, center_of_mass, num_spokes=40):
     nearest_spoke_angle = min(angles, key=lambda x: abs(x - angle))
     return nearest_spoke_angle
 
-
-# def calculate_spoke_scale(center_of_mass, infilled_clusters, angle):
-#     """
-#     Calculate the scale for a given spoke angle based on the center of mass and infilled_clusters.
-#     """
-#     y, x = center_of_mass
-#     rows, cols = infilled_clusters.shape
-#     for scale in range(1, max(rows, cols)):
-#         end_y, end_x = int(y + scale * np.sin(angle)), int(x + scale * np.cos(angle))
-#         if 0 <= end_y < rows and 0 <= end_x < cols:
-#             if infilled_clusters[end_y, end_x] == 0:
-#                 return scale
-#     return None
-
-# def calculate_spoke_scale(center_of_mass, infilled_clusters, angle):
-#     """
-#     Calculate the scale value along a spoke emanating from the center of mass at a given angle.
-#     The scale is defined as the distance from the center of mass to the first transition from 'signal' to 'background'.
-#     """
-#     i, j = int(center_of_mass[0]), int(center_of_mass[1])
-#     di, dj = np.sin(angle), np.cos(angle)
-#     scale = None
-#     while 0 <= i < infilled_clusters.shape[0] and 0 <= j < infilled_clusters.shape[1]:
-#         if infilled_clusters[int(i), int(j)] == 0:
-#             scale = np.sqrt((i - center_of_mass[0]) ** 2 + (j - center_of_mass[1]) ** 2)
-#             break
-#         i, j = i + di, j + dj
-#     return scale
-
-# def calculate_custom_distances(center_of_mass, infilled_clusters, num_spokes=20):
-#     """
-#     Calculate the custom radial distances based on the center of mass and infilled_clusters using the corrected angle assignment.
-#     """
-#     rows, cols = infilled_clusters.shape
-#     custom_distances = np.zeros((rows, cols))
-#     for i in range(rows):
-#         for j in range(cols):
-#             nearest_spoke_angle = correct_angle_assignment(i, j, center_of_mass, num_spokes)
-#             scale = calculate_spoke_scale(center_of_mass, infilled_clusters, nearest_spoke_angle)
-#             if scale:
-#                 euclidean_distance = np.sqrt((i - center_of_mass[0])**2 + (j - center_of_mass[1])**2)
-#                 custom_distances[i, j] = euclidean_distance / scale
-#     return custom_distances
 
 # Function to visualize the corrected scale values in j, k space using a heatmap
 def visualize_corrected_scale_values_heatmap(center_of_mass, infilled_clusters, num_spokes=20):
@@ -257,58 +203,6 @@ def calculate_custom_distances(center_of_mass, infilled_clusters, num_spokes):
                 distances[i, j] = np.sqrt((i - center_of_mass[0]) ** 2 + (j - center_of_mass[1]) ** 2) / scale
     return distances
 
-# def run_radial_analysis(infilled_clusters, num_spokes=40, num_pixels_per_set=100):
-#     center_of_mass = ndimage.measurements.center_of_mass(infilled_clusters)
-#     custom_distances = calculate_custom_distances(center_of_mass, infilled_clusters, num_spokes)
-#     pixel_sets = calculate_pixel_sets_updated(custom_distances, num_pixels_per_set)
-#     pixel_set_indices = np.zeros_like(custom_distances, dtype=int)
-#     for i, pixel_set in enumerate(pixel_sets):
-#         pixel_set_indices[pixel_set] = i
-#     scale_values = np.zeros_like(custom_distances)
-#     angles = np.linspace(-np.pi, np.pi, num_spokes, endpoint=False)
-#     for i in range(infilled_clusters.shape[0]):
-#         for j in range(infilled_clusters.shape[1]):
-#             angle = np.arctan2(i - center_of_mass[0], j - center_of_mass[1])
-#             nearest_spoke_angle = min(angles, key=lambda x: abs(x - angle))
-#             scale_values[i, j] = calculate_spoke_scale(center_of_mass, infilled_clusters, nearest_spoke_angle)
-#     return custom_distances, pixel_sets, pixel_set_indices, scale_values
-
-# # Debugging the run_radial_analysis function by printing out some internal variables
-# def run_radial_analysis(infilled_clusters, num_spokes=20, num_pixels_per_set=50):
-#     """
-#     Run the entire radial analysis and return the custom distances, pixel sets, and scale values.
-#     This is a debug version of the function to investigate its behavior.
-#     """
-#     # Calculate the center of mass
-#     center_of_mass = np.array(np.round(np.mean(np.argwhere(infilled_clusters), axis=0)), dtype=int)
-
-#     # Calculate custom distances
-#     custom_distances = calculate_custom_distances(center_of_mass, infilled_clusters, num_spokes)
-
-#     # Calculate the pixel sets
-#     pixel_sets = calculate_pixel_sets_updated(custom_distances, num_pixels_per_set)
-
-#     # Initialize an empty array to store the pixel set index for each pixel
-#     pixel_set_indices = np.zeros_like(infilled_clusters, dtype=int)
-
-#     # Assign the index of the corresponding pixel set to each pixel
-#     for i, pixel_set in enumerate(pixel_sets):
-#         # Convert pixel_set to a NumPy array for easier indexing
-#         pixel_set = np.array(pixel_set)
-#         pixel_set_indices[pixel_set[:, 0], pixel_set[:, 1]] = i
-
-#     # Calculate the scale values
-#     scale_values = np.zeros_like(infilled_clusters, dtype=float)
-#     angles = np.linspace(-np.pi, np.pi, num_spokes, endpoint=False)
-#     for i in range(infilled_clusters.shape[0]):
-#         for j in range(infilled_clusters.shape[1]):
-#             angle = np.arctan2(i - center_of_mass[0], j - center_of_mass[1])
-#             nearest_spoke_angle = min(angles, key=lambda x: abs(x - angle))
-#             scale = calculate_spoke_scale(center_of_mass, infilled_clusters, nearest_spoke_angle)
-#             if scale:
-#                 scale_values[i, j] = scale
-
-#     return custom_distances, pixel_sets, pixel_set_indices, scale_values
 
 def plot_radial_analysis(infilled_clusters, custom_distances, pixel_set_indices, scale_values, num_spokes=40):
     """
