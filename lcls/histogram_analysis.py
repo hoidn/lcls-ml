@@ -304,10 +304,16 @@ def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries,
 
 # top level Functions
 
-def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
-         roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
-         threshold = .1, cluster_size_threshold = 50):
-    histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+# def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
+#          roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
+#          threshold = .1, cluster_size_threshold = 50):
+#     histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+def run_histogram_analysis(data = None, histograms=None, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
+                           roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
+                           threshold=.1, cluster_size_threshold=50):
+    if histograms is None:
+        histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+
     average_histogram = get_average_roi_histogram(histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end)
     emd_values = calculate_emd_values(histograms, average_histogram)
 
