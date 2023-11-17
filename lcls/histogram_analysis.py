@@ -1,3 +1,4 @@
+from typing import Union
 import numpy as np
 from numpy.random import choice
 from scipy.ndimage import label
@@ -329,14 +330,22 @@ def run_histogram_analysis(data = None, histograms=None, bin_boundaries=np.arang
 
     signal_mask = filter_negative_clusters_by_size(
         rectify_filter_mask(
-            roi_connected_cluster, data), M=cluster_size_threshold)
+            roi_connected_cluster, histograms), M=cluster_size_threshold)
 
     # TODO refactor, this should go into run_histogram_analysis
     # Also run_histogram_analysis should return a dict
-    signal_mask = infill_binary_array(data,
+    signal_mask = infill_binary_array(histograms,
                                             signal_mask)
-
-    return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution, signal_mask
+    return {
+        "histograms": histograms,
+        "average_histogram": average_histogram,
+        "emd_values": emd_values,
+        "null_distribution": null_distribution,
+        "p_values": p_values,
+        "labeled_array": labeled_array,
+        "signal_mask": signal_mask
+    }
+#     return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution, signal_mask
 
 def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     seed_x = (roi_x_start + roi_x_end) // 2
@@ -360,40 +369,98 @@ def filter_and_sum_histograms(histograms, energies, Emin, Emax):
 
     return summed_histograms
 
-def calculate_signal_background_noI0(data, signal_mask,
-                                     bin_boundaries, hist_start_bin, buf1=10, buf2=20):
+#def calculate_signal_background_noI0(data, signal_mask,
+#                                     bin_boundaries, hist_start_bin, buf1=10, buf2=20):
+#    local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+#    energies = bin_boundaries[hist_start_bin + 1:]
+#
+##     filtered_clusters = filter_negative_clusters_by_size(roi_connected_cluster, M=50)
+#    integrated_counts = filter_and_sum_histograms(local_histograms, energies, 8, 10)
+#
+#    buffer = create_continuous_buffer(signal_mask, buf1)
+#    buffer = create_continuous_buffer(signal_mask | buffer, buf2)
+#    signal, bg = background_subtraction(integrated_counts, signal_mask, buffer)
+#    #mark
+#    # Poisson statistics for variance
+#    var_signal = signal  # variance for signal
+#    var_bg = bg  # variance for background
+#
+#    # Combined variance in quadrature
+#    total_var = np.sqrt(var_signal**2 + var_bg**2)
+#
+#    return signal, bg, total_var
+
+def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, buf1=10, buf2=20, background_mask_multiple=1.0, thickness=10):
+    """
+    Updated version of calculate_signal_background_noI0 function to use the new background mask calculation method.
+
+    Additional Parameters:
+    - background_mask_multiple: float, multiple of the number of pixels in the signal mask for the background mask.
+    - thickness: int, thickness of the background buffer.
+    """
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     energies = bin_boundaries[hist_start_bin + 1:]
-
-#     filtered_clusters = filter_negative_clusters_by_size(roi_connected_cluster, M=50)
     integrated_counts = filter_and_sum_histograms(local_histograms, energies, 8, 10)
 
-    buffer = create_continuous_buffer(signal_mask, buf1)
-    buffer = create_continuous_buffer(signal_mask | buffer, buf2)
-    signal, bg = background_subtraction(integrated_counts, signal_mask, buffer)
-    #mark
+    # Using the new function to create the background mask
+    background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
+
+    signal, bg = background_subtraction(integrated_counts, signal_mask, background_mask)
     # Poisson statistics for variance
     var_signal = signal  # variance for signal
     var_bg = bg  # variance for background
 
+    nsignal = np.sum(signal_mask)
+    nbg = np.sum(background_mask)
+
     # Combined variance in quadrature
-    total_var = np.sqrt(var_signal**2 + var_bg**2)
+    total_var = var_signal + (var_bg * ((nsignal / nbg)**2))
 
     return signal, bg, total_var
 
-import numpy as np
-from typing import Union
+#def create_continuous_buffer(signal_mask: np.ndarray, thickness: int = 10, num_pixels: int = None) -> np.ndarray:
+#    buffer = np.zeros_like(signal_mask, dtype=bool)
+#    dilated_region = binary_dilation(signal_mask, iterations=thickness)
+#    buffer = dilated_region & (~signal_mask)
+#    if num_pixels is not None:
+#        buffer_pixels = np.argwhere(buffer)
+#        if buffer_pixels.shape[0] > num_pixels:
+#            remove_indices = np.random.choice(buffer_pixels.shape[0], size=buffer_pixels.shape[0] - num_pixels, replace=False)
+#            buffer_pixels_to_remove = buffer_pixels[remove_indices]
+#            buffer[buffer_pixels_to_remove[:, 0], buffer_pixels_to_remove[:, 1]] = False
+#    return buffer
 
-def create_continuous_buffer(signal_mask: np.ndarray, thickness: int = 10, num_pixels: int = None) -> np.ndarray:
-    buffer = np.zeros_like(signal_mask, dtype=bool)
-    dilated_region = binary_dilation(signal_mask, iterations=thickness)
-    buffer = dilated_region & (~signal_mask)
-    if num_pixels is not None:
-        buffer_pixels = np.argwhere(buffer)
-        if buffer_pixels.shape[0] > num_pixels:
-            remove_indices = np.random.choice(buffer_pixels.shape[0], size=buffer_pixels.shape[0] - num_pixels, replace=False)
-            buffer_pixels_to_remove = buffer_pixels[remove_indices]
-            buffer[buffer_pixels_to_remove[:, 0], buffer_pixels_to_remove[:, 1]] = False
+def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10, num_pixels: int = None) -> np.ndarray:
+    """
+    Create a continuous buffer around a signal mask, targeting a specific number of pixels.
+
+    Args:
+    signal_mask (np.ndarray): The original signal mask.
+    initial_thickness (int): The initial thickness for dilation.
+    num_pixels (int, optional): The target number of pixels in the buffer.
+
+    Returns:
+    np.ndarray: The created buffer.
+    """
+    # Create an initial dilated buffer
+    thickness = initial_thickness
+    buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
+
+    # Adjust the buffer to meet or exceed the target number of pixels
+    current_num_pixels = np.sum(buffer)
+    while num_pixels is not None and current_num_pixels < num_pixels:
+        thickness += 1
+        buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
+        current_num_pixels = np.sum(buffer)
+
+    # Trim the buffer if it exceeds the target number of pixels
+    while num_pixels is not None and current_num_pixels > num_pixels:
+        thickness -= 1
+        reduced_buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
+        current_num_pixels = np.sum(reduced_buffer)
+        if current_num_pixels >= num_pixels:
+            buffer = reduced_buffer
+
     return buffer
 
 # New version that targets bg mask size based on size of signal mask. Need to test / integrate
@@ -449,3 +516,24 @@ def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarra
     return S, M * N / np.sum(buffer)
     result = S - N * M
     return result
+
+def create_background_mask(signal_mask, background_mask_multiple, thickness):
+    """
+    Creates a background mask based on the given signal mask, a multiple of its size, and thickness.
+
+    Parameters:
+    - signal_mask: numpy.ndarray, a boolean array representing the signal mask.
+    - background_mask_multiple: float, multiple of the number of pixels in the signal mask for the background mask.
+    - thickness: int, thickness of the background buffer.
+
+    Returns:
+    - numpy.ndarray, the calculated background mask.
+    """
+    num_pixels_signal_mask = np.sum(signal_mask)
+    num_pixels_background_mask = int(num_pixels_signal_mask * background_mask_multiple)
+
+    # Create the background mask using continuous buffer
+    background_mask = create_continuous_buffer(signal_mask,
+                initial_thickness=thickness, num_pixels=num_pixels_background_mask)
+    return background_mask
+
