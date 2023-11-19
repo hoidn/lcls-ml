@@ -4,9 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 #from lcls import pvalues
 import pvalues
-from histogram_analysis import calculate_signal_background_noI0
-
 compute_aggregate_pvals_with_custom_background = pvalues.compute_aggregate_pvals_with_custom_background
+
+import histogram_analysis as hist
+#from histogram_analysis import calculate_signal_background_noI0
+calculate_signal_background_noI0 = hist.calculate_signal_background_noI0
 
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     # Adjust the bin width to ensure it's a float
@@ -118,7 +120,6 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries,
 
     return delays, norm_signals, std_devs
 
-
 def calculate_p_value_simplified(signal_on, signal_off, std_dev_on, std_dev_off):
     """
     Corrected p-value calculation using standard normal distribution.
@@ -139,7 +140,6 @@ def calculate_p_value_simplified(signal_on, signal_off, std_dev_on, std_dev_off)
 #             size = min(stacks_on[time_delay].shape[0], stacks_off[time_delay].shape[0])
 #             histo_on = calculate_histograms(stacks_on[time_delay][:size, ...], bin_boundaries, hist_start_bin)
 #             histo_off = calculate_histograms(stacks_off[time_delay][:size, ...], bin_boundaries, hist_start_bin)
-
 #             relative_histogram = np.abs(histo_on - histo_off)
 #             p_value_data = compute_aggregate_pvals_with_custom_background(
 #                 bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple,
