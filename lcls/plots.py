@@ -94,7 +94,14 @@ def plot_normalized_signal_vs_time_delay(
     ax2.grid(True)
     # Plot for Relative Aggregate P-Values
     ax2.scatter(sorted(set(delays_on) & set(delays_off)), neg_log_p_values, color='red', label='-log(p-value)')
-    ax2.axhline(y=-np.log10(0.5), color='black', linestyle='--')
+    # Adding dashed lines for 10%, 1%, and 0.1% levels
+    label_offset = 0.2  # Adjust this value as needed for proper label positioning
+    for p_val, label in zip([0.1, 0.01, 0.001], ['10%', '1%', '0.1%']):
+        neg_log_p_val = -np.log10(p_val)
+        ax2.axhline(y=neg_log_p_val, color='black', linestyle='--')
+        ax2.text(ax2.get_xlim()[1], neg_log_p_val + label_offset, f'{label} level', va='center', ha='right', fontsize=18, color='black')
+
+    #ax2.axhline(y=-np.log10(0.5), color='black', linestyle='--')
     ax2.set_xlabel('Time Delay (ps)')
     ax2.set_title('geometric mean: {}'.format(geometric_mean(relative_p_values)))
     ax2.minorticks_on()
