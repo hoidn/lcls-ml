@@ -303,12 +303,6 @@ def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries,
     else:
         plt.show()
 
-# top level Functions
-
-# def run_histogram_analysis(data, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
-#          roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
-#          threshold = .1, cluster_size_threshold = 50):
-#     histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 def run_histogram_analysis(data = None, histograms=None, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
                            roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
                            threshold=.1, cluster_size_threshold=50):
@@ -369,27 +363,6 @@ def filter_and_sum_histograms(histograms, energies, Emin, Emax):
 
     return summed_histograms
 
-#def calculate_signal_background_noI0(data, signal_mask,
-#                                     bin_boundaries, hist_start_bin, buf1=10, buf2=20):
-#    local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
-#    energies = bin_boundaries[hist_start_bin + 1:]
-#
-##     filtered_clusters = filter_negative_clusters_by_size(roi_connected_cluster, M=50)
-#    integrated_counts = filter_and_sum_histograms(local_histograms, energies, 8, 10)
-#
-#    buffer = create_continuous_buffer(signal_mask, buf1)
-#    buffer = create_continuous_buffer(signal_mask | buffer, buf2)
-#    signal, bg = background_subtraction(integrated_counts, signal_mask, buffer)
-#    #mark
-#    # Poisson statistics for variance
-#    var_signal = signal  # variance for signal
-#    var_bg = bg  # variance for background
-#
-#    # Combined variance in quadrature
-#    total_var = np.sqrt(var_signal**2 + var_bg**2)
-#
-#    return signal, bg, total_var
-
 def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, buf1=10, buf2=20, background_mask_multiple=1.0, thickness=10):
     """
     Updated version of calculate_signal_background_noI0 function to use the new background mask calculation method.
@@ -418,81 +391,8 @@ def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_sta
 
     return signal, bg, total_var
 
-#def create_continuous_buffer(signal_mask: np.ndarray, thickness: int = 10, num_pixels: int = None) -> np.ndarray:
-#    buffer = np.zeros_like(signal_mask, dtype=bool)
-#    dilated_region = binary_dilation(signal_mask, iterations=thickness)
-#    buffer = dilated_region & (~signal_mask)
-#    if num_pixels is not None:
-#        buffer_pixels = np.argwhere(buffer)
-#        if buffer_pixels.shape[0] > num_pixels:
-#            remove_indices = np.random.choice(buffer_pixels.shape[0], size=buffer_pixels.shape[0] - num_pixels, replace=False)
-#            buffer_pixels_to_remove = buffer_pixels[remove_indices]
-#            buffer[buffer_pixels_to_remove[:, 0], buffer_pixels_to_remove[:, 1]] = False
-#    return buffer
 
-def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10, num_pixels: int = None) -> np.ndarray:
-    """
-    Create a continuous buffer around a signal mask, targeting a specific number of pixels.
 
-    Args:
-    signal_mask (np.ndarray): The original signal mask.
-    initial_thickness (int): The initial thickness for dilation.
-    num_pixels (int, optional): The target number of pixels in the buffer.
-
-    Returns:
-    np.ndarray: The created buffer.
-    """
-    # Create an initial dilated buffer
-    thickness = initial_thickness
-    buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
-
-    # Adjust the buffer to meet or exceed the target number of pixels
-    current_num_pixels = np.sum(buffer)
-    while num_pixels is not None and current_num_pixels < num_pixels:
-        thickness += 1
-        buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
-        current_num_pixels = np.sum(buffer)
-
-    # Trim the buffer if it exceeds the target number of pixels
-    while num_pixels is not None and current_num_pixels > num_pixels:
-        thickness -= 1
-        reduced_buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
-        current_num_pixels = np.sum(reduced_buffer)
-        if current_num_pixels >= num_pixels:
-            buffer = reduced_buffer
-
-    return buffer
-
-# New version that targets bg mask size based on size of signal mask. Need to test / integrate
-# def create_continuous_buffer(signal_mask: np.ndarray, fraction: float = 1.0) -> np.ndarray:
-#     """
-#     Adjust the buffer thickness to approximate the target number of True pixels in the buffer,
-#     based on a fraction of the number of True pixels in signal_mask.
-
-#     Parameters:
-#     signal_mask (np.ndarray): A boolean array where True pixels represent infilled clusters.
-#     fraction (float): The desired fraction of True pixels in the buffer compared to signal_mask.
-
-#     Returns:
-#     np.ndarray: A boolean array representing the buffer with an approximated number of True pixels.
-#     """
-#     target_true_count = int(np.sum(signal_mask) * fraction)  # Target number of True pixels in the buffer
-#     thickness = 1  # Start with the smallest thickness
-#     buffer = np.zeros_like(signal_mask, dtype=bool)
-
-#     # Iteratively adjust the thickness until the buffer has approximately the target number of True pixels
-#     while True:
-#         dilated_region = binary_dilation(signal_mask, iterations=thickness)
-#         buffer = dilated_region & (~signal_mask)
-#         buffer_true_count = np.sum(buffer)
-
-#         # Stop if the number of True pixels is close to the target or starts to exceed it
-#         if buffer_true_count >= target_true_count or thickness > signal_mask.size:
-#             break
-
-#         thickness += 1  # Increase the thickness for the next iteration
-
-#     return buffer, thickness
 
 def calculate_average_counts(integrated_counts: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
     counts_in_buffer = integrated_counts[buffer]
@@ -537,3 +437,67 @@ def create_background_mask(signal_mask, background_mask_multiple, thickness):
                 initial_thickness=thickness, num_pixels=num_pixels_background_mask)
     return background_mask
 
+def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10,
+                             num_pixels: int = None, separator_thickness: int = 1) -> np.ndarray:
+    """
+    Create a continuous buffer around a signal mask with a gap, targeting a specific number of pixels.
+
+    Args:
+        signal_mask (np.ndarray): The original signal mask.
+        initial_thickness (int): The initial thickness for dilation.
+        num_pixels (int, optional): The target number of pixels in the buffer.
+        separator_thickness (int): The thickness of the gap between the signal mask and the buffer.
+
+    Returns:
+        np.ndarray: The created buffer.
+    """
+    # Create a gap between the signal mask and the buffer
+    dilated_signal = binary_dilation(signal_mask, iterations=separator_thickness)
+    #gap_mask = dilated_signal & (~signal_mask)
+
+    # Adjust the buffer to meet or exceed the target number of pixels
+    current_num_pixels = 0
+    thickness = 0
+    while num_pixels is not None and current_num_pixels < num_pixels:
+        thickness += 1
+        buffer = binary_dilation(dilated_signal, iterations=thickness) & (~dilated_signal)
+        current_num_pixels = np.sum(buffer)
+
+    return buffer
+
+#def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10,
+#                             num_pixels: int = None, separator_thickness: int = 10) -> np.ndarray:
+#    """
+#    Create a continuous buffer around a signal mask, targeting a specific number of pixels.
+#
+#    Args:
+#    signal_mask (np.ndarray): The original signal mask.
+#    initial_thickness (int): The initial thickness for dilation.
+#    num_pixels (int, optional): The target number of pixels in the buffer.
+#
+#    Returns:
+#    np.ndarray: The created buffer.
+#    """
+#    # Create an initial dilated buffer
+#    dilated_signal = binary_dilation(signal_mask, iterations=separator_thickness)
+#
+#    # Create an initial buffer with the gap
+#    thickness = initial_thickness
+#    buffer = binary_dilation(dilated_signal, iterations=thickness) & (~dilated_signal)
+#
+#    # Adjust the buffer to meet or exceed the target number of pixels
+#    current_num_pixels = np.sum(buffer)
+#    while num_pixels is not None and current_num_pixels < num_pixels:
+#        thickness += 1
+#        buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
+#        current_num_pixels = np.sum(buffer)
+#
+#    # Trim the buffer if it exceeds the target number of pixels
+#    while num_pixels is not None and current_num_pixels > num_pixels:
+#        thickness -= 1
+#        reduced_buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
+#        current_num_pixels = np.sum(reduced_buffer)
+#        if current_num_pixels >= num_pixels:
+#            buffer = reduced_buffer
+#
+#    return buffer

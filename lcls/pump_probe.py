@@ -1,4 +1,4 @@
-from pvalues import compute_aggregate_pvals
+#from pvalues import compute_aggregate_pvals
 from typing import Dict, List, Tuple, Any
 import numpy as np
 import matplotlib.pyplot as plt
@@ -154,3 +154,312 @@ def calculate_p_value_simplified(signal_on, signal_off, std_dev_on, std_dev_off)
     # Using the CDF of the standard normal distribution to calculate p-value
     p_value = 2 * (1 - norm.cdf(z_score))  # Two-tailed test
     return p_value
+
+from plots import geometric_mean
+#from pump_probe import calculate_p_value_simplified
+
+def create_data_array(stacks_on, stacks_off):
+    """
+    Creates a 3D numpy array by stacking the 2D numpy arrays in stacks_on and stacks_off along the 0th axis.
+
+    :param stacks_on: A dictionary of 2D numpy arrays representing 'on' data.
+    :param stacks_off: A dictionary of 2D numpy arrays representing 'off' data.
+    :return: A 3D numpy array created by stacking the arrays in stacks_on and stacks_off along the 0th axis.
+    """
+    on_arrays = [stack for key in sorted(stacks_on.keys()) for stack in stacks_on[key]]
+    off_arrays = [stack for key in sorted(stacks_off.keys()) for stack in stacks_off[key]]
+
+    # Stacking all arrays along the 0th axis into a single 3D numpy array
+    data = np.stack(on_arrays + off_arrays, axis=0)
+    return data
+
+from histogram_analysis import run_histogram_analysis
+# TODO signal mask from histograms
+def compute_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, threshold,
+                                data = None, histograms = None):
+    """
+    Computes the signal mask based on the given parameters and threshold.
+
+    :param bin_boundaries: The boundaries for histogram bins.
+    :param hist_start_bin: The starting bin for the histogram.
+    :param roi_coordinates: A tuple of (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
+    :param data: The 3D numpy array containing the data.
+    :param threshold: The threshold value for the analysis.
+    :return: The computed signal mask.
+    """
+    roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
+    res = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries, hist_start_bin=hist_start_bin,
+                                 roi_x_start=roi_x_start, roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
+                                 data=data, threshold=threshold)
+
+    return res['signal_mask']
+
+def run_analysis_and_visualization(cdw_output, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, threshold,
+                                  data = None, histograms = None):
+    """
+    Top-level function to run analysis and visualization.
+
+    :param cdw_output: Dictionary containing 'stacks_on' and 'stacks_off'.
+    :param bin_boundaries: Boundaries for histogram bins.
+    :param hist_start_bin: The starting bin for the histogram.
+    :param roi_coordinates: ROI coordinates as a tuple (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
+    :param background_mask_multiple: Parameter for the plot_normalized_signal_vs_time_delay function.
+    :param threshold: Threshold value for signal mask calculation.
+    :return: Dictionary capturing the outputs of the plot_normalized_signal_vs_time_delay function.
+    """
+    if histograms is None:
+        if data is None:
+            # Calculate 'data'
+            data = create_data_array(cdw_output['stacks_on'], cdw_output['stacks_off'])
+        else:
+            # Calculate 'histograms'
+            histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+
+    # Run histogram analysis to get the signal mask
+    analysis_results = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries,
+                                              hist_start_bin=hist_start_bin, roi_x_start=roi_x_start,
+                                              roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
+                                              threshold=threshold)
+    signal_mask = analysis_results['signal_mask']
+
+    # Run the analysis/visualization
+    plot_results = plot_normalized_signal_vs_time_delay(cdw_output, signal_mask,
+                                                        bin_boundaries, hist_start_bin,
+                                                        roi_coordinates, background_mask_multiple)
+
+    return plot_results
+
+def calculate_figure_of_merit(analysis_results):
+    """
+    Calculates the geometric mean of the p-values from the analysis results.
+
+    :param analysis_results: Dictionary containing analysis results with p-values.
+    :return: Geometric mean of the p-values.
+    """
+    import numpy as np
+
+    p_values = analysis_results['relative_p_values']  # Extract p-values from the results
+    p_values = np.array(p_values)
+    p_values = p_values[p_values > 0]  # Exclude non-positive values for geometric mean calculation
+
+    if len(p_values) == 0:
+        return 0  # Return 0 if there are no positive p-values
+
+    geometric_mean = np.exp(np.mean(np.log(p_values)))
+    return 1 - geometric_mean
+
+def optimize_figure_of_merit(cdw_output, bin_boundaries, hist_start_bin, roi_coordinates, param_grid,
+                            histograms = None):
+    """
+    Optimizes the figure of merit over analysis parameters using grid search.
+
+    :param cdw_output: Dictionary containing 'stacks_on' and 'stacks_off'.
+    :param bin_boundaries: Boundaries for histogram bins.
+    :param hist_start_bin: The starting bin for the histogram.
+    :param roi_coordinates: ROI coordinates as a tuple (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
+    :param param_grid: Dictionary defining the grid search space for 'background_mask_multiple' and 'threshold'.
+    :return: Dictionary containing the optimal parameters and the corresponding figure of merit.
+    """
+    optimal_params = None
+    best_figure_of_merit = float('-inf')
+
+    for background_mask_multiple in param_grid['background_mask_multiple']:
+        for threshold in param_grid['threshold']:
+            print(background_mask_multiple, threshold)
+            # Run analysis with current set of parameters
+            analysis_results = run_analysis_and_visualization(
+                cdw_output, bin_boundaries, hist_start_bin, roi_coordinates,
+                background_mask_multiple, threshold, histograms= histograms
+            )
+
+            # Calculate the figure of merit for the current parameter set
+            current_figure_of_merit = calculate_figure_of_merit(analysis_results)
+
+            # Update the optimal parameters if the current figure of merit is better
+            if current_figure_of_merit > best_figure_of_merit:
+                best_figure_of_merit = current_figure_of_merit
+                optimal_params = {
+                    'background_mask_multiple': background_mask_multiple,
+                    'threshold': threshold
+                }
+
+    return {
+        'optimal_params': optimal_params,
+        'best_figure_of_merit': best_figure_of_merit
+    }
+
+#from plots import plot_normalized_signal_vs_time_delay, process_stacks
+
+def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
+    # Extracting data from CDW_PP output
+    stacks_on = cdw_pp_output['stacks_on']
+    stacks_off = cdw_pp_output['stacks_off']
+    I0 = cdw_pp_output['I0']
+    binned_delays = cdw_pp_output['binned_delays']
+    arg_laser_on = cdw_pp_output['arg_laser_on']
+    arg_laser_off = cdw_pp_output['arg_laser_off']
+
+    # Process 'Laser On' and 'Laser Off' stacks
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask,
+            bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask,
+            bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
+
+    # Calculating relative p-values
+    relative_p_values = []
+    for delay in sorted(set(delays_on) & set(delays_off)):
+        signal_on = norm_signal_on[delays_on.index(delay)]
+        signal_off = norm_signal_off[delays_off.index(delay)]
+        std_dev_on_val = std_dev_on[delays_on.index(delay)]
+        std_dev_off_val = std_dev_off[delays_off.index(delay)]
+
+        p_value = calculate_p_value_simplified(signal_on, signal_off, std_dev_on_val, std_dev_off_val)
+        relative_p_values.append(p_value)
+
+    return {
+        'delays_on': delays_on,
+        'norm_signal_on': norm_signal_on,
+        'std_dev_on': std_dev_on,
+        'delays_off': delays_off,
+        'norm_signal_off': norm_signal_off,
+        'std_dev_off': std_dev_off,
+        'relative_p_values': relative_p_values
+    }
+
+
+def plot_data(data, subplot_spec, plot_title = 'Normalized Signal vs Time Delay'):
+    fig = plt.gcf()  # Get the current figure, assumed to be created externally
+    ax1 = fig.add_subplot(subplot_spec[0])
+    ax2 = fig.add_subplot(subplot_spec[1])
+
+    # Unpack data
+    delays_on = data['delays_on']
+    norm_signal_on = data['norm_signal_on']
+    std_dev_on = data['std_dev_on']
+    delays_off = data['delays_off']
+    norm_signal_off = data['norm_signal_off']
+    std_dev_off = data['std_dev_off']
+    relative_p_values = data['relative_p_values']
+
+    # Plot for Normalized Signal
+    ax1.errorbar(delays_on, norm_signal_on, yerr=std_dev_on, fmt='rs-', label='Laser On: Signal')
+    ax1.errorbar(delays_off, norm_signal_off, yerr=std_dev_off, fmt='ks-', mec='k', mfc='white', alpha=0.2, label='Laser Off: Signal')
+    ax1.set_xlabel('Time Delay (ps)')
+    ax1.set_ylabel('Normalized Signal')
+    ax1.set_title(plot_title)
+    ax1.legend()
+    ax1.grid(True)
+    ax1.minorticks_on()
+
+    # Calculate -log(p-value) while handling cases where p-value is 0
+    neg_log_p_values = [-np.log10(p) if p > 0 else 0 for p in relative_p_values]
+    ax2.set_xlabel('Time Delay')
+    ax2.set_ylabel('-log(P-value)')
+    ax2.set_title('-log(P-value) vs Time Delay')
+    ax2.grid(True)
+    ax2.scatter(sorted(set(delays_on) & set(delays_off)), neg_log_p_values, color='red', label='-log(p-value)')
+
+    # Adding dashed lines for 10%, 1%, and 0.1% levels
+    label_offset = 0.2  # Adjust this value as needed for proper label positioning
+    for p_val, label in zip([0.5, 0.1, 0.01, 0.001], ['50%', '10%', '1%', '0.1%']):
+        neg_log_p_val = -np.log10(p_val)
+        ax2.axhline(y=neg_log_p_val, color='black', linestyle='--')
+        ax2.text(ax2.get_xlim()[1], neg_log_p_val + label_offset, f'{label} level', va='center', ha='right', fontsize=18, color='black')
+
+    ax2.legend()
+    ax2.set_title('geometric mean: {}'.format(geometric_mean(relative_p_values)))
+    ax2.set_ylim(0, 4)
+
+def plot_normalized_signal_vs_time_delay(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
+    plot_data_dict = generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple)
+    plot_data(plot_data_dict)
+    return plot_data_dict
+
+from scipy.stats import norm
+def calculate_relative_p_values(Intensity_on, Intensity_off, assume_photon_counts=True):
+    p_values = []
+    for i in range(len(Intensity_on)):
+        signal_on = Intensity_on[i, 0]
+        signal_off = Intensity_off[i, 0]
+
+        if assume_photon_counts:
+            std_dev_on = np.sqrt(signal_on)
+            std_dev_off = np.sqrt(signal_off)
+        else:
+            std_dev_on = Intensity_on[i, 1]
+            std_dev_off = Intensity_off[i, 1]
+
+        delta_signal = abs(signal_on - signal_off)
+        combined_std_dev = np.sqrt(std_dev_on**2 + std_dev_off**2)
+        z_score = delta_signal / combined_std_dev
+        p_value = 2 * (1 - norm.cdf(z_score))  # Two-tailed test
+        p_values.append(p_value)
+    return np.array(p_values)
+
+
+def generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts=False):
+    Intensity_on, Intensity_off = [], []
+    npixels = (mask == 1).sum()
+    for i in range(imgs_on.shape[0]):
+        Intensity_on.append(imgs_on[i][mask == 1].mean())
+        Intensity_on.append(imgs_on[i][mask == 1].std() / np.sqrt(npixels))
+        Intensity_off.append(imgs_off[i][mask == 1].mean())
+        Intensity_off.append(imgs_off[i][mask == 1].std() / np.sqrt(npixels))
+
+    Intensity_on = np.array(Intensity_on).reshape(imgs_on.shape[0], 2)
+    Intensity_off = np.array(Intensity_off).reshape(imgs_on.shape[0], 2)
+
+    # Calculate relative p-values
+    p_values = calculate_relative_p_values(Intensity_on, Intensity_off, assume_photon_counts)
+
+    return {
+        'delay': delay,
+        'Intensity_on': Intensity_on,
+        'Intensity_off': Intensity_off,
+        'p_values': p_values
+    }
+
+def PP_lazy(imgs_on, imgs_off, mask, delay, assume_photon_counts=False):
+    # Generate data
+    pp_lazy_data = generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts)
+
+    # Prepare data for plotting in the format expected by plot_data
+    plot_data_dict = {
+        'delays_on': pp_lazy_data['delay'],
+        'norm_signal_on': pp_lazy_data['Intensity_on'][:, 0],
+        'std_dev_on': pp_lazy_data['Intensity_on'][:, 1],
+        'delays_off': pp_lazy_data['delay'],
+        'norm_signal_off': pp_lazy_data['Intensity_off'][:, 0],
+        'std_dev_off': pp_lazy_data['Intensity_off'][:, 1],
+        'relative_p_values': pp_lazy_data['p_values']
+    }
+
+    # Use existing plot_data function for plotting
+    plot_data(plot_data_dict)
+
+    return pp_lazy_data
+
+
+from matplotlib.gridspec import GridSpec
+def combine_plots(pp_lazy_data, cdw_data):
+    # Create a figure with a 2x2 grid of subplots
+    fig = plt.figure(figsize=(12, 10))
+    gs = GridSpec(2, 2, figure=fig)
+
+    # First pair of plots
+    plot_data_dict1 = {
+        'delays_on': pp_lazy_data['delay'],
+        'norm_signal_on': pp_lazy_data['Intensity_on'][:, 0],
+        'std_dev_on': pp_lazy_data['Intensity_on'][:, 1],
+        'delays_off': pp_lazy_data['delay'],
+        'norm_signal_off': pp_lazy_data['Intensity_off'][:, 0],
+        'std_dev_off': pp_lazy_data['Intensity_off'][:, 1],
+        'relative_p_values': pp_lazy_data['p_values']
+    }
+    plot_data(plot_data_dict1, subplot_spec=[gs[0, 0], gs[1, 0]], plot_title = 'Human')
+
+    # Second pair of plots
+    plot_data(cdw_data, subplot_spec=[gs[0, 1], gs[1, 1]], plot_title = 'Automated')
+
+    plt.tight_layout()
+    plt.show()
