@@ -10,7 +10,6 @@ import functools
 import hashlib
 import random
 
-
 def memoize_subsampled(func):
     """Memoize a function by creating a hashable key using deterministically subsampled data."""
     cache = {}
@@ -150,7 +149,8 @@ def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x
         random_x_indices = choice(range(num_x_indices), size=num_bins)
         random_y_indices = choice(range(num_y_indices), size=num_bins)
 
-        # Use the random indices to index roi_histograms directly
+        # TODO this might not be the right distribution. How about
+        # bootstrapping on the background emd values?
         bootstrap_sample_histogram = roi_histograms[np.arange(num_bins), random_x_indices, random_y_indices]
 
         null_emd_value = wasserstein_distance(bootstrap_sample_histogram, average_histogram)
@@ -171,7 +171,6 @@ def identify_roi_connected_cluster(p_values, threshold, roi_x_start, roi_x_end, 
     roi_cluster_label = labeled_array[seed_x, seed_y]
     return labeled_array, labeled_array == roi_cluster_label
     #return labeled_array == roi_cluster_label
-
 
 def sum_histograms_by_mask(histogram_array, binary_mask, agg = 'mean'):
     # Apply the mask to select histograms
@@ -196,9 +195,6 @@ def filter_negative_clusters_by_size(cluster_array, M=10):
     small_cluster_mask = np.isin(labeled_array, small_clusters)
     return np.logical_or(cluster_array, small_cluster_mask)
 
-from functools import partial
-import matplotlib.pyplot as plt
-
 # from your_module import run_histogram_analysis, filter_negative_clusters_by_size
 
 # TODO refactor
@@ -212,8 +208,6 @@ def rectify_filter_mask(mask, data):
         return ~mask
     else:
         return mask
-
-from scipy.ndimage import label
 
 def infill_binary_array(data, array):
     imgs_sum = data.sum(axis = 0)
@@ -235,7 +229,6 @@ def infill_binary_array(data, array):
     infilled_array = (labeled_array == largest_component)
 
     return infilled_array
-
 
 @memoize_general
 def precompute_analysis_data(data, bin_boundaries, hist_start_bin, roi_x_start,
@@ -265,8 +258,6 @@ def visualize_clusters(cluster_array, title):
     plt.xlabel('y-axis')
     plt.ylabel('x-axis')
     plt.show()
-
-# Top-level functions for reproducing the visualizations
 
 def visualize_size_filtered_clusters(histogram_array, binary_mask):
     summed_histogram = sum_histograms_by_mask(histogram_array, binary_mask)
@@ -349,8 +340,6 @@ def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y
 
     visualize_clusters(roi_connected_cluster, 'Cluster Connected to the ROI')
 
-import numpy as np
-
 def filter_and_sum_histograms(histograms, energies, Emin, Emax):
     # Create a mask based on energy constraints
     energy_mask = (energies >= Emin) & (energies <= Emax)
@@ -390,9 +379,6 @@ def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_sta
     total_var = var_signal + (var_bg * ((nsignal / nbg)**2))
 
     return signal, bg, total_var
-
-
-
 
 def calculate_average_counts(integrated_counts: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
     counts_in_buffer = integrated_counts[buffer]
@@ -465,39 +451,3 @@ def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 1
 
     return buffer
 
-#def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10,
-#                             num_pixels: int = None, separator_thickness: int = 10) -> np.ndarray:
-#    """
-#    Create a continuous buffer around a signal mask, targeting a specific number of pixels.
-#
-#    Args:
-#    signal_mask (np.ndarray): The original signal mask.
-#    initial_thickness (int): The initial thickness for dilation.
-#    num_pixels (int, optional): The target number of pixels in the buffer.
-#
-#    Returns:
-#    np.ndarray: The created buffer.
-#    """
-#    # Create an initial dilated buffer
-#    dilated_signal = binary_dilation(signal_mask, iterations=separator_thickness)
-#
-#    # Create an initial buffer with the gap
-#    thickness = initial_thickness
-#    buffer = binary_dilation(dilated_signal, iterations=thickness) & (~dilated_signal)
-#
-#    # Adjust the buffer to meet or exceed the target number of pixels
-#    current_num_pixels = np.sum(buffer)
-#    while num_pixels is not None and current_num_pixels < num_pixels:
-#        thickness += 1
-#        buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
-#        current_num_pixels = np.sum(buffer)
-#
-#    # Trim the buffer if it exceeds the target number of pixels
-#    while num_pixels is not None and current_num_pixels > num_pixels:
-#        thickness -= 1
-#        reduced_buffer = binary_dilation(signal_mask, iterations=thickness) & (~signal_mask)
-#        current_num_pixels = np.sum(reduced_buffer)
-#        if current_num_pixels >= num_pixels:
-#            buffer = reduced_buffer
-#
-#    return buffer

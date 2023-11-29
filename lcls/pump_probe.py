@@ -34,7 +34,7 @@ def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     return binned_delays
 
 
-def extract_stacks_by_delay_optimized(binned_delays, img_array, bin_width, min_count):
+def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count):
     unique_binned_delays = np.unique(binned_delays)
     stacks = {}
 
@@ -88,8 +88,8 @@ def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bi
 
     binned_delays = delay_bin(delay, np.array(rr.enc.lasDelay), Time_bin, arg_delay_nan)
 
-    stacks_on = extract_stacks_by_delay_optimized(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count)
-    stacks_off = extract_stacks_by_delay_optimized(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count)
+    stacks_on = extract_stacks_by_delay(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count)
+    stacks_off = extract_stacks_by_delay(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count)
 
     return {
     'stacks_on': stacks_on,
@@ -120,7 +120,7 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries,
 
     return delays, norm_signals, std_devs
 
-def calculate_p_value_simplified(signal_on, signal_off, std_dev_on, std_dev_off):
+def calculate_p_value(signal_on, signal_off, std_dev_on, std_dev_off):
     """
     Corrected p-value calculation using standard normal distribution.
 
@@ -156,7 +156,6 @@ def calculate_p_value_simplified(signal_on, signal_off, std_dev_on, std_dev_off)
     return p_value
 
 from plots import geometric_mean
-#from pump_probe import calculate_p_value_simplified
 
 def create_data_array(stacks_on, stacks_off):
     """
@@ -313,7 +312,7 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         std_dev_on_val = std_dev_on[delays_on.index(delay)]
         std_dev_off_val = std_dev_off[delays_off.index(delay)]
 
-        p_value = calculate_p_value_simplified(signal_on, signal_off, std_dev_on_val, std_dev_off_val)
+        p_value = calculate_p_value(signal_on, signal_off, std_dev_on_val, std_dev_off_val)
         relative_p_values.append(p_value)
 
     return {
@@ -367,7 +366,7 @@ def plot_data(data, subplot_spec, plot_title = 'Normalized Signal vs Time Delay'
         ax2.text(ax2.get_xlim()[1], neg_log_p_val + label_offset, f'{label} level', va='center', ha='right', fontsize=18, color='black')
 
     ax2.legend()
-    ax2.set_title('geometric mean: {}'.format(geometric_mean(relative_p_values)))
+    ax2.set_title('FOM: {:.2f}'.format(1 - geometric_mean(relative_p_values)))
     ax2.set_ylim(0, 4)
 
 def plot_normalized_signal_vs_time_delay(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
@@ -396,7 +395,6 @@ def calculate_relative_p_values(Intensity_on, Intensity_off, assume_photon_count
         p_values.append(p_value)
     return np.array(p_values)
 
-
 def generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts=False):
     Intensity_on, Intensity_off = [], []
     npixels = (mask == 1).sum()
@@ -418,26 +416,6 @@ def generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts=F
         'Intensity_off': Intensity_off,
         'p_values': p_values
     }
-
-def PP_lazy(imgs_on, imgs_off, mask, delay, assume_photon_counts=False):
-    # Generate data
-    pp_lazy_data = generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts)
-
-    # Prepare data for plotting in the format expected by plot_data
-    plot_data_dict = {
-        'delays_on': pp_lazy_data['delay'],
-        'norm_signal_on': pp_lazy_data['Intensity_on'][:, 0],
-        'std_dev_on': pp_lazy_data['Intensity_on'][:, 1],
-        'delays_off': pp_lazy_data['delay'],
-        'norm_signal_off': pp_lazy_data['Intensity_off'][:, 0],
-        'std_dev_off': pp_lazy_data['Intensity_off'][:, 1],
-        'relative_p_values': pp_lazy_data['p_values']
-    }
-
-    # Use existing plot_data function for plotting
-    plot_data(plot_data_dict)
-
-    return pp_lazy_data
 
 
 from matplotlib.gridspec import GridSpec
