@@ -35,7 +35,7 @@ def geometric_mean(arr):
     """
     return np.exp(np.mean(np.log(arr)))
 
-from pump_probe import process_stacks, calculate_p_value_simplified
+from pump_probe import process_stacks
 # Updating the plotting function to use this simplified p-value calculation
 #def plot_normalized_signal_vs_time_delay(
 #    cdw_pp_output: dict,
