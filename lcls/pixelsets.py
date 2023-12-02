@@ -3,10 +3,8 @@ import numpy as np
 from scipy import ndimage
 from matplotlib.patches import Arrow
 
-# Importing required functions from scipy.ndimage
 from scipy.ndimage import center_of_mass
 
-# Define a function to calculate the center of mass of the white signal clump in infilled_clusters
 def find_center_of_mass(infilled_clusters):
     """
     Calculate the center of mass of the white signal clump in a given 2D array (infilled_clusters).
@@ -20,7 +18,6 @@ def find_center_of_mass(infilled_clusters):
     return center_of_mass(infilled_clusters)
 
 
-# Function to correct the angle assignment
 def correct_angle_assignment(i, j, center_of_mass, num_spokes=40):
     angles = np.linspace(0, 2 * np.pi, num_spokes, endpoint=False)
     angle = np.arctan2(i - center_of_mass[0], j - center_of_mass[1]) % (2 * np.pi)
@@ -28,7 +25,6 @@ def correct_angle_assignment(i, j, center_of_mass, num_spokes=40):
     return nearest_spoke_angle
 
 
-# Function to visualize the corrected scale values in j, k space using a heatmap
 def visualize_corrected_scale_values_heatmap(center_of_mass, infilled_clusters, num_spokes=20):
     """
     Visualize the corrected scale values for each spoke in j, k space using a heatmap.
@@ -41,12 +37,10 @@ def visualize_corrected_scale_values_heatmap(center_of_mass, infilled_clusters, 
     rows, cols = infilled_clusters.shape
     corrected_scale_heatmap = np.zeros((rows, cols))
     
-    # Define angles for the spokes
     angles = np.linspace(0, 2 * np.pi, num_spokes, endpoint=False)
     
     for i in range(rows):
         for j in range(cols):
-            # Correct angle assignment to [0, 2*pi] range
             angle = np.arctan2(i - center_of_mass[0], j - center_of_mass[1]) % (2 * np.pi)
             nearest_spoke_angle = min(angles, key=lambda x: min(abs(x - angle), 2 * np.pi - abs(x - angle)))
             scale = calculate_spoke_scale(center_of_mass, infilled_clusters, nearest_spoke_angle)
@@ -60,40 +54,28 @@ def visualize_corrected_scale_values_heatmap(center_of_mass, infilled_clusters, 
     plt.colorbar(label='Scale Value')
     plt.show()
 
-## Visualize the corrected scale values in j, k space using a heatmap for the new uploaded infilled_clusters
-#visualize_corrected_scale_values_heatmap(center_of_mass_coordinates, infilled_clusters, num_spokes=20)
 
 
-# # Recalculate the center of mass for the new uploaded infilled_clusters
-# center_of_mass_coordinates = center_of_mass(infilled_clusters)
 
-# # Recalculate the custom radial distances and scales using the new uploaded infilled_clusters
-# custom_distances_new_uploaded = calculate_custom_distances(center_of_mass_coordinates, infilled_clusters, num_spokes=20)
-# scales_new_uploaded_20_spokes = [calculate_spoke_scale(center_of_mass_coordinates, infilled_clusters, angle) for angle in angles_20_spokes]
 
-# Revised 2x2 visualization layout with new uploaded infilled_clusters and 20 spokes
 def revised_2x2_visualize_analysis_stages(center_of_mass, infilled_clusters, custom_distances, scales, num_spokes=20):
     fig, axs = plt.subplots(2, 2, figsize=(12, 12))
     
-    # Visualize infilled_clusters
     axs[0, 0].imshow(infilled_clusters, cmap='gray')
     axs[0, 0].set_title('Infilled Clusters')
     axs[0, 0].set_xlabel('j')
     axs[0, 0].set_ylabel('k')
     
-    # Visualize custom_distances
     axs[0, 1].imshow(custom_distances, cmap='viridis')
     axs[0, 1].set_title('Custom Radial Distances')
     axs[0, 1].set_xlabel('j')
     axs[0, 1].set_ylabel('k')
     
-    # Visualize spokes and infilled_clusters
     axs[1, 0].imshow(infilled_clusters, cmap='gray')
     axs[1, 0].set_title('Spokes for Scale Calculation')
     axs[1, 0].set_xlabel('j')
     axs[1, 0].set_ylabel('k')
     
-    # Heatmap of scale values
     axs[1, 1].imshow(np.tile(scales, (10, 1)), cmap='viridis', aspect='auto')
     axs[1, 1].set_title('Heatmap of Scale Values')
     axs[1, 1].set_xlabel('Spoke Index')
@@ -101,7 +83,6 @@ def revised_2x2_visualize_analysis_stages(center_of_mass, infilled_clusters, cus
     
     angles = np.linspace(0, 2 * np.pi, num_spokes, endpoint=False)
     
-    # Draw the spokes
     for angle in angles:
         scale = calculate_spoke_scale(center_of_mass, infilled_clusters, angle)
         if scale:
@@ -111,10 +92,7 @@ def revised_2x2_visualize_analysis_stages(center_of_mass, infilled_clusters, cus
     plt.tight_layout()
     plt.show()
 
-## Visualize the revised analysis stages with new uploaded infilled_clusters and 20 spokes in 2x2 layout
-#revised_2x2_visualize_analysis_stages(center_of_mass_coordinates, infilled_clusters, custom_distances_new_uploaded, scales_new_uploaded_20_spokes, num_spokes=20)
 
-# Function to calculate pixel sets
 def calculate_pixel_sets_updated(custom_distances, N):
     rows, cols = custom_distances.shape
     pixel_sets = []
@@ -131,7 +109,6 @@ def calculate_pixel_sets_updated(custom_distances, N):
     return np.array(pixel_sets)
 
 
-# High-level functions for analysis and visualization
 def run_radial_analysis(infilled_clusters, num_spokes=40, num_pixels_per_set=100):
     """
     Run the radial analysis on the given 2D binary mask (infilled_clusters).
@@ -144,27 +121,20 @@ def run_radial_analysis(infilled_clusters, num_spokes=40, num_pixels_per_set=100
     Returns:
         tuple: (custom_distances, pixel_sets, pixel_set_indices, scale_values)
     """
-    # Calculate the center of mass
     center_of_mass = ndimage.measurements.center_of_mass(infilled_clusters)
     
-    # Calculate scales using the original version of calculate_spoke_scale
     angles = np.linspace(0, 2*np.pi, num_spokes, endpoint=False)
     scales = [calculate_spoke_scale(center_of_mass, infilled_clusters, angle) for angle in angles]
     
-    # Calculate custom radial distances
     custom_distances = calculate_custom_distances(center_of_mass, infilled_clusters, num_spokes=num_spokes)
     
-    # Calculate pixel sets
     pixel_sets = calculate_pixel_sets_updated(custom_distances, num_pixels_per_set)
     
-    # Initialize an empty array to store the pixel set index for each pixel
     pixel_set_indices = np.zeros_like(infilled_clusters, dtype=int)
     
-    # Assign the index of the corresponding pixel set to each pixel
     for i, pixel_set in enumerate(pixel_sets):
         pixel_set_indices += i * pixel_set
         
-    # Generate the scale heatmap
     scale_values = np.zeros_like(infilled_clusters, dtype=float)
     for i in range(infilled_clusters.shape[0]):
         for j in range(infilled_clusters.shape[1]):
@@ -217,25 +187,21 @@ def plot_radial_analysis(infilled_clusters, custom_distances, pixel_set_indices,
     """
     fig, axs = plt.subplots(2, 2, figsize=(12, 12))
     
-    # Pixel sets by index heatmap
     axs[0, 0].imshow(pixel_set_indices * (pixel_set_indices < 20), cmap='tab20', interpolation='none')
     axs[0, 0].set_title('Pixel Sets by Index')
     axs[0, 0].set_xlabel('j')
     axs[0, 0].set_ylabel('k')
     
-    # Custom radial distances heatmap
     axs[0, 1].imshow(custom_distances, cmap='hot', interpolation='none')
     axs[0, 1].set_title('Custom Radial Distances')
     axs[0, 1].set_xlabel('j')
     axs[0, 1].set_ylabel('k')
     
-    # Scale heatmap
     axs[1, 0].imshow(scale_values, cmap='hot', interpolation='none')
     axs[1, 0].set_title('Scale Values')
     axs[1, 0].set_xlabel('j')
     axs[1, 0].set_ylabel('k')
     
-    # Spokes for scale calculation figure
     axs[1, 1].imshow(infilled_clusters, cmap='gray', interpolation='none')
     center_of_mass = ndimage.measurements.center_of_mass(infilled_clusters)
     angles = np.linspace(0, 2*np.pi, num_spokes, endpoint=False)
@@ -251,6 +217,3 @@ def plot_radial_analysis(infilled_clusters, custom_distances, pixel_set_indices,
     plt.tight_layout()
     plt.show()
 
-## Run the high-level functions
-#custom_distances_original, pixel_sets_original, pixel_set_indices_original, scale_values_original = run_radial_analysis(infilled_clusters)
-#plot_radial_analysis(infilled_clusters, custom_distances_original, pixel_set_indices_original, scale_values_original)

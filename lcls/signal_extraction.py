@@ -2,35 +2,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def filter_and_sum_histograms(histograms, energies, Emin, Emax):
-    # Create a mask based on energy constraints
     energy_mask = (energies >= Emin) & (energies <= Emax)
 
-    # Apply the energy mask to the histograms
     filtered_histograms = histograms[energy_mask, :, :]
 
-    # Sum along the 0th axis
     summed_histograms = np.sum(filtered_histograms, axis=0)
 
     return summed_histograms
 
 def calculate_signal_background_noI0(data, infilled_clusters, buf1=10, buf2=20):
-    # Run the analysis
-#     emd_values, p_values, _, roi_connected_cluster, _, _ = run_histogram_analysis(
-#         data, bin_boundaries, hist_start_bin, roi_x_start, roi_x_end, roi_y_start, roi_y_end,
-#         threshold=threshold)
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
-#     filtered_clusters = filter_negative_clusters_by_size(roi_connected_cluster, M=50)
     integrated_counts = filter_and_sum_histograms(local_histograms, energies, 8, 10)
 
     buffer = create_continuous_buffer(infilled_clusters, buf1)
     buffer = create_continuous_buffer(infilled_clusters | buffer, buf2)
     signal, bg = background_subtraction(integrated_counts, infilled_clusters, buffer)
-    #mark
-    # Poisson statistics for variance
-    var_signal = signal  # variance for signal
-    var_bg = bg  # variance for background
+    var_signal = signal  
+    var_bg = bg  
 
-    # Combined variance in quadrature
     total_var = np.sqrt(var_signal**2 + var_bg**2)
 
     return signal, bg, total_var
@@ -38,8 +27,7 @@ def calculate_signal_background_noI0(data, infilled_clusters, buf1=10, buf2=20):
 def calculate_signal_noI0(data, infilled_clusters, buf1=20, buf2=20):
     integrated_counts = filter_and_sum_histograms(histograms, energies, 8, 10)
 
-    # Poisson statistics for variance
-    var_signal = signal  # variance for signal
+    var_signal = signal  
 
     return signal, var_signal
 
@@ -73,7 +61,6 @@ def calculate_total_counts(integrated_counts: np.ndarray, infilled_clusters: np.
     return S
 
 def background_subtraction(integrated_counts: np.ndarray, infilled_clusters: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
-    # TODO unequal signal and background
     N = np.sum(infilled_clusters)
     M = calculate_total_counts(integrated_counts, buffer)
     if M is None:
