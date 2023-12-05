@@ -102,7 +102,8 @@ def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bi
     #return stacks_on, stacks_off, I0, binned_delays, arg_laser_on, arg_laser_off
 
 def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin,
-                  binned_delays, background_mask_multiple= 1):
+                  binned_delays, background_mask_multiple= 1,
+                    sub_bg = True):
     delays, norm_signals, std_devs = [], [], []
 
     for delay, stack in stacks.items():
@@ -111,8 +112,12 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries,
 
         signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin,
                                                                 background_mask_multiple= background_mask_multiple)
-        norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        # TODO does this work? mean vs. sum
+        if sub_bg:
+            norm_signal = (signal - bg) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        else:
+            norm_signal = (signal) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        std_dev = np.sqrt(total_var) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
 
         delays.append(delay)
         norm_signals.append(norm_signal)
@@ -287,8 +292,6 @@ def optimize_figure_of_merit(cdw_output, bin_boundaries, hist_start_bin, roi_coo
         'best_figure_of_merit': best_figure_of_merit
     }
 
-#from plots import plot_normalized_signal_vs_time_delay, process_stacks
-
 def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
     # Extracting data from CDW_PP output
     stacks_on = cdw_pp_output['stacks_on']
@@ -324,7 +327,6 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         'std_dev_off': std_dev_off,
         'relative_p_values': relative_p_values
     }
-
 
 def plot_data(data, subplot_spec, plot_title = 'Normalized Signal vs Time Delay'):
     fig = plt.gcf()  # Get the current figure, assumed to be created externally
@@ -416,7 +418,6 @@ def generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts=F
         'Intensity_off': Intensity_off,
         'p_values': p_values
     }
-
 
 from matplotlib.gridspec import GridSpec
 def combine_plots(pp_lazy_data, cdw_data):

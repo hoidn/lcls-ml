@@ -100,12 +100,33 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
     for i in range(rows * cols):
         valid_indices = bin_indices[:, i] < bins  # Exclude indices that fall outside the bin range or equal to the last boundary
         histograms[:, i // cols, i % cols] = np.bincount(bin_indices[:, i][valid_indices], minlength=bins)
+        # TODO efficiency
+        # counts beyond max go into the first bin, otherwise they don't
+        # contribute to the EMD
+        histograms[hist_start_bin, i // cols, i % cols] += np.sum(reshaped_data[:, i] > bin_boundaries[-1])
 
     # Add small constant
     histograms += 1e-9
     normalized_histograms = histograms #/ (1e-9 + np.sum(histograms, axis=0))
 
     return normalized_histograms[hist_start_bin:, :, :]
+#def calculate_histograms(data, bin_boundaries, hist_start_bin):
+#    bins = len(bin_boundaries) - 1
+#    rows, cols = data.shape[1], data.shape[2]
+#    hist_shape = (bins, rows, cols)
+#
+#    reshaped_data = data.reshape(-1, rows * cols)
+#    bin_indices = np.digitize(reshaped_data, bin_boundaries)
+#    bin_indices[bin_indices > bins] = bins
+#
+#    histograms = np.zeros(hist_shape, dtype=np.float64)
+#
+#    for i in range(rows * cols):
+#        valid_indices = bin_indices[:, i] <= bins
+#        histograms[:, i // cols, i % cols] = np.bincount(bin_indices[:, i][valid_indices] - 1, minlength=bins)
+#
+#    histograms += 1e-9
+#    return histograms[hist_start_bin:, :, :]
 calculate_histograms = jit(nopython=True)(calculate_histograms)
 calculate_histograms = memoize_subsampled(calculate_histograms)
 
@@ -150,7 +171,7 @@ def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x
         random_y_indices = choice(range(num_y_indices), size=num_bins)
 
         # TODO this might not be the right distribution. How about
-        # bootstrapping on the background emd values?
+        # bootstrapping on the background emd values using Poisson sampling?
         bootstrap_sample_histogram = roi_histograms[np.arange(num_bins), random_x_indices, random_y_indices]
 
         null_emd_value = wasserstein_distance(bootstrap_sample_histogram, average_histogram)
@@ -352,6 +373,8 @@ def filter_and_sum_histograms(histograms, energies, Emin, Emax):
 
     return summed_histograms
 
+# TODO parameterize
+Emin, Emax = 8, 10
 def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, buf1=10, buf2=20, background_mask_multiple=1.0, thickness=10):
     """
     Updated version of calculate_signal_background_noI0 function to use the new background mask calculation method.
@@ -362,7 +385,7 @@ def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_sta
     """
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     energies = bin_boundaries[hist_start_bin + 1:]
-    integrated_counts = filter_and_sum_histograms(local_histograms, energies, 8, 10)
+    integrated_counts = filter_and_sum_histograms(local_histograms, energies, Emin, Emax)
 
     # Using the new function to create the background mask
     background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
@@ -437,6 +460,8 @@ def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 1
     Returns:
         np.ndarray: The created buffer.
     """
+    if num_pixels > np.prod(signal_mask.shape) - np.sum(signal_mask):
+        raise ValueError
     # Create a gap between the signal mask and the buffer
     dilated_signal = binary_dilation(signal_mask, iterations=separator_thickness)
     #gap_mask = dilated_signal & (~signal_mask)
