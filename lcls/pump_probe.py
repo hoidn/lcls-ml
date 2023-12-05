@@ -48,7 +48,7 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count):
 def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool,
           min_count = 200):
     from ybco import SMD_Loader, EnergyFilter
-    rr = SMD_Loader(Run_Number)  
+    rr = SMD_Loader(Run_Number)
 
 
     I0 = rr.ipm2.sum[:]
@@ -85,7 +85,8 @@ def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bi
     }
 
 def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin,
-                  binned_delays, background_mask_multiple= 1):
+                  binned_delays, background_mask_multiple= 1,
+                    sub_bg = True):
     delays, norm_signals, std_devs = [], [], []
 
     for delay, stack in stacks.items():
@@ -93,8 +94,12 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries,
 
         signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin,
                                                                 background_mask_multiple= background_mask_multiple)
-        norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        # TODO does this work? mean vs. sum
+        if sub_bg:
+            norm_signal = (signal - bg) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        else:
+            norm_signal = (signal) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        std_dev = np.sqrt(total_var) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
 
         delays.append(delay)
         norm_signals.append(norm_signal)
@@ -120,7 +125,7 @@ def calculate_p_value(signal_on, signal_off, std_dev_on, std_dev_off):
     combined_std_dev = np.sqrt(std_dev_on**2 + std_dev_off**2)
     z_score = delta_signal / combined_std_dev
 
-    p_value = 2 * (1 - norm.cdf(z_score))  
+    p_value = 2 * (1 - norm.cdf(z_score))
     return p_value
 
 from plots import geometric_mean
@@ -199,12 +204,12 @@ def calculate_figure_of_merit(analysis_results):
     """
     import numpy as np
 
-    p_values = analysis_results['relative_p_values']  
+    p_values = analysis_results['relative_p_values']
     p_values = np.array(p_values)
-    p_values = p_values[p_values > 0]  
+    p_values = p_values[p_values > 0]
 
     if len(p_values) == 0:
-        return 0  
+        return 0
 
     geometric_mean = np.exp(np.mean(np.log(p_values)))
     return 1 - geometric_mean
@@ -246,7 +251,6 @@ def optimize_figure_of_merit(cdw_output, bin_boundaries, hist_start_bin, roi_coo
         'best_figure_of_merit': best_figure_of_merit
     }
 
-
 def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
     stacks_on = cdw_pp_output['stacks_on']
     stacks_off = cdw_pp_output['stacks_off']
@@ -280,9 +284,8 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         'relative_p_values': relative_p_values
     }
 
-
 def plot_data(data, subplot_spec, plot_title = 'Normalized Signal vs Time Delay'):
-    fig = plt.gcf()  
+    fig = plt.gcf()
     ax1 = fig.add_subplot(subplot_spec[0])
     ax2 = fig.add_subplot(subplot_spec[1])
 
@@ -310,7 +313,7 @@ def plot_data(data, subplot_spec, plot_title = 'Normalized Signal vs Time Delay'
     ax2.grid(True)
     ax2.scatter(sorted(set(delays_on) & set(delays_off)), neg_log_p_values, color='red', label='-log(p-value)')
 
-    label_offset = 0.2  
+    label_offset = 0.2
     for p_val, label in zip([0.5, 0.1, 0.01, 0.001], ['50%', '10%', '1%', '0.1%']):
         neg_log_p_val = -np.log10(p_val)
         ax2.axhline(y=neg_log_p_val, color='black', linestyle='--')
@@ -342,7 +345,7 @@ def calculate_relative_p_values(Intensity_on, Intensity_off, assume_photon_count
         delta_signal = abs(signal_on - signal_off)
         combined_std_dev = np.sqrt(std_dev_on**2 + std_dev_off**2)
         z_score = delta_signal / combined_std_dev
-        p_value = 2 * (1 - norm.cdf(z_score))  
+        p_value = 2 * (1 - norm.cdf(z_score))
         p_values.append(p_value)
     return np.array(p_values)
 
@@ -366,7 +369,6 @@ def generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts=F
         'Intensity_off': Intensity_off,
         'p_values': p_values
     }
-
 
 from matplotlib.gridspec import GridSpec
 def combine_plots(pp_lazy_data, cdw_data):
