@@ -77,6 +77,50 @@ def memoize_general(func):
 
     return wrapper
 
+#import functools
+#import hashlib
+#import json
+#import numpy as np
+#import random
+#import sys
+#
+#def get_object_hash(obj):
+#    """
+#    Generate a hash for an object. Uses subsampling for large numpy arrays
+#    and standard serialization for other types.
+#    """
+#    if isinstance(obj, np.ndarray) and obj.nbytes > 1000000:  # Subsampling for large arrays
+#        seed_value = int(hashlib.sha256(str(obj.shape).encode()).hexdigest(), 16) % 10**8
+#        random.seed(seed_value)
+#
+#        subsample_size = min(100, obj.size)  # Sample size of 100 or less
+#        subsample_indices = random.sample(range(obj.size), subsample_size)
+#        subsample = obj.flat[subsample_indices]
+#
+#        return hashlib.sha256(subsample.tobytes()).hexdigest()
+#    else:
+#        try:
+#            return hashlib.sha256(json.dumps(obj, default=str).encode()).hexdigest()
+#        except (TypeError, OverflowError):
+#            return 'unserializable_type'
+#
+#def memoize_general(func):
+#    cache = {}
+#
+#    @functools.wraps(func)
+#    def wrapper(*args, **kwargs):
+#        composite_key_parts = [get_object_hash(arg) for arg in args]
+#        composite_key = hashlib.sha256("".join(composite_key_parts).encode()).hexdigest()
+#
+#        if composite_key in cache:
+#            return cache[composite_key]
+#
+#        result = func(*args, **kwargs)
+#        cache[composite_key] = result
+#        return result
+#
+#    return wrapper
+
 from numba import jit
 
 # # Optimizing the function using Numba
@@ -426,7 +470,7 @@ def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarra
     result = S - N * M
     return result
 
-def create_background_mask(signal_mask, background_mask_multiple, thickness):
+def create_background_mask(signal_mask, background_mask_multiple, thickness, separator_thickness = 5):
     """
     Creates a background mask based on the given signal mask, a multiple of its size, and thickness.
 
@@ -443,7 +487,8 @@ def create_background_mask(signal_mask, background_mask_multiple, thickness):
 
     # Create the background mask using continuous buffer
     background_mask = create_continuous_buffer(signal_mask,
-                initial_thickness=thickness, num_pixels=num_pixels_background_mask)
+                initial_thickness=thickness, num_pixels=num_pixels_background_mask,
+                                               separator_thickness = separator_thickness)
     return background_mask
 
 def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10,
