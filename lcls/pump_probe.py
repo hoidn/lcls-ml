@@ -372,8 +372,9 @@ def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Del
         ax2.text(ax2.get_xlim()[1], neg_log_p_val + label_offset, f'{label} level', va='center', ha='right', fontsize=18, color='black')
 
     ax2.legend()
-    ax2.set_title('FOM: {:.2f}'.format(1 - geometric_mean(relative_p_values)))
-    ax2.set_ylim(0, 8)
+    ax2.set_title('FOM: {:.2f}'.format(-np.log10(geometric_mean(relative_p_values))))
+    #ax2.set_title('FOM: {:.2f}'.format(1 - geometric_mean(relative_p_values)))
+    ax2.set_ylim(0, 15)
 
     plt.tight_layout()  # Adjust layout to prevent overlapping
 
