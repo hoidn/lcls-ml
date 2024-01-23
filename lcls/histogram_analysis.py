@@ -405,9 +405,38 @@ def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y
 
     visualize_clusters(roi_connected_cluster, 'Cluster Connected to the ROI')
 
+#def filter_and_sum_histograms(histograms, energies, Emin, Emax):
+#    # Create a mask based on energy constraints
+#    energy_mask = (energies >= Emin) & (energies <= Emax)
+#
+#    # Apply the energy mask to the histograms
+#    filtered_histograms = histograms[energy_mask, :, :]
+#
+#    # Sum along the 0th axis
+#    summed_histograms = np.sum(filtered_histograms, axis=0)
+#
+#    return summed_histograms
+
 def filter_and_sum_histograms(histograms, energies, Emin, Emax):
-    # Create a mask based on energy constraints
-    energy_mask = (energies >= Emin) & (energies <= Emax)
+    # Calculate central energy and window size
+    E0 = (Emax + Emin) / 2
+    window_size = Emax - Emin
+
+    # Initialize a mask with False values
+    energy_mask = np.zeros_like(energies, dtype=bool)
+
+    # Loop through the first three harmonics
+    for n in range(1, 4):
+        # Calculate window size and center energy for the nth harmonic
+        harmonic_window_size = np.sqrt(n) * window_size
+        harmonic_center_energy = n * E0
+
+        # Calculate the energy bounds for the nth harmonic
+        harmonic_Emin = harmonic_center_energy - harmonic_window_size / 2
+        harmonic_Emax = harmonic_center_energy + harmonic_window_size / 2
+
+        # Update the mask to include the nth harmonic energies
+        energy_mask |= ((energies >= harmonic_Emin) & (energies <= harmonic_Emax))
 
     # Apply the energy mask to the histograms
     filtered_histograms = histograms[energy_mask, :, :]
@@ -418,16 +447,11 @@ def filter_and_sum_histograms(histograms, energies, Emin, Emax):
     return summed_histograms
 
 # TODO parameterize
-Emin, Emax = 8, 10
-def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, buf1=10, buf2=20, background_mask_multiple=1.0, thickness=10):
+def calculate_signal_background_from_histograms(local_histograms, signal_mask,
+        bin_boundaries, hist_start_bin,
+        background_mask_multiple=1.0, thickness=10, Emin = 8, Emax = 10):
     """
-    Updated version of calculate_signal_background_noI0 function to use the new background mask calculation method.
-
-    Additional Parameters:
-    - background_mask_multiple: float, multiple of the number of pixels in the signal mask for the background mask.
-    - thickness: int, thickness of the background buffer.
     """
-    local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     energies = bin_boundaries[hist_start_bin + 1:]
     integrated_counts = filter_and_sum_histograms(local_histograms, energies, Emin, Emax)
 
@@ -446,6 +470,20 @@ def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_sta
     total_var = var_signal + (var_bg * ((nsignal / nbg)**2))
 
     return signal, bg, total_var
+
+def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, background_mask_multiple=1.0, thickness=10,
+                                     **kwargs):
+    """
+    Updated version of calculate_signal_background_noI0 function to use the new background mask calculation method.
+
+    Additional Parameters:
+    - background_mask_multiple: float, multiple of the number of pixels in the signal mask for the background mask.
+    - thickness: int, thickness of the background buffer.
+    """
+    local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+    return calculate_signal_background_from_histograms(local_histograms,
+                signal_mask, bin_boundaries, hist_start_bin,
+                background_mask_multiple=1.0, thickness=10, **kwargs)
 
 def calculate_average_counts(integrated_counts: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
     counts_in_buffer = integrated_counts[buffer]
@@ -507,6 +545,7 @@ def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 1
     """
     if num_pixels > np.prod(signal_mask.shape) - np.sum(signal_mask):
         raise ValueError
+    assert signal_mask.sum() > 0
     # Create a gap between the signal mask and the buffer
     dilated_signal = binary_dilation(signal_mask, iterations=separator_thickness)
     #gap_mask = dilated_signal & (~signal_mask)

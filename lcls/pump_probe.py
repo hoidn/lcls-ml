@@ -113,11 +113,13 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries,
         signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin,
                                                                 background_mask_multiple= background_mask_multiple)
         # TODO does this work? mean vs. sum
-        if sub_bg:
-            norm_signal = (signal - bg) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        else:
-            norm_signal = (signal) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        std_dev = np.sqrt(total_var) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+#        if sub_bg:
+#            norm_signal = (signal - bg) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+#        else:
+#            norm_signal = (signal) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+#        std_dev = np.sqrt(total_var) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
 
         delays.append(delay)
         norm_signals.append(norm_signal)
@@ -292,6 +294,54 @@ def optimize_figure_of_merit(cdw_output, bin_boundaries, hist_start_bin, roi_coo
         'best_figure_of_merit': best_figure_of_merit
     }
 
+def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histograms,
+                         threshold_lower=0., threshold_upper=.5,
+                         num_threshold_points=10, num_runs=5,
+                         max_signal_fraction = 0.4):
+    """
+    Performs grid search optimization for the 'signal mask' array, focusing only on the threshold parameter.
+    """
+    threshold_range = np.linspace(threshold_lower, threshold_upper, num_threshold_points)
+    best_signal_mask = None
+    best_threshold = None
+    best_avg_ratio = float('-inf')
+    grid_search_results = []
+
+    for threshold in threshold_range:
+        ratios = []
+
+        for _ in range(num_runs):
+            signal_mask = compute_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, threshold, histograms=histograms)
+            if signal_mask.mean() > max_signal_fraction or signal_mask.sum() == 0:
+                continue
+            signal, bg, _ = hist.calculate_signal_background_from_histograms(histograms, signal_mask, bin_boundaries, hist_start_bin)
+
+            if bg == 0:
+                continue
+
+            ratio = (signal - bg) / bg
+            ratios.append(ratio)
+
+        if not ratios:
+            continue
+
+        avg_ratio = np.mean(ratios)
+        std_dev = np.std(ratios)
+        grid_search_results.append((threshold, avg_ratio, std_dev))
+
+        if avg_ratio > best_avg_ratio:
+            best_avg_ratio = avg_ratio
+            best_signal_mask = signal_mask
+            best_threshold = threshold
+
+    # Converting grid search results to a numpy array or dict of numpy arrays
+    grid_search_results_np = np.array(grid_search_results, dtype=[('threshold', float), ('avg_ratio', float), ('std_dev', float)])
+
+    return best_signal_mask, best_threshold, grid_search_results_np
+
+# Note: The functions compute_signal_mask and calculate_signal_background_from_histograms need to be predefined as per the user's environment.
+
+
 def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
     # Extracting data from CDW_PP output
     stacks_on = cdw_pp_output['stacks_on']
@@ -374,7 +424,8 @@ def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Del
     ax2.legend()
     ax2.set_title('FOM: {:.2f}'.format(-np.log10(geometric_mean(relative_p_values))))
     #ax2.set_title('FOM: {:.2f}'.format(1 - geometric_mean(relative_p_values)))
-    ax2.set_ylim(0, 15)
+
+    #ax2.set_ylim(0, 4)
 
     plt.tight_layout()  # Adjust layout to prevent overlapping
 
@@ -442,10 +493,10 @@ def combine_plots(pp_lazy_data, cdw_data):
         'std_dev_off': pp_lazy_data['Intensity_off'][:, 1],
         'relative_p_values': pp_lazy_data['p_values']
     }
-    plot_data(plot_data_dict1, subplot_spec=[gs[0, 0], gs[1, 0]], plot_title = 'Human')
+    plot_data(plot_data_dict1, subplot_spec=[gs[0, 1], gs[1, 1]], plot_title = 'Human')
 
     # Second pair of plots
-    plot_data(cdw_data, subplot_spec=[gs[0, 1], gs[1, 1]], plot_title = 'Automated')
+    plot_data(cdw_data, subplot_spec=[gs[0, 0], gs[1, 0]], plot_title = 'Automated')
 
     plt.tight_layout()
     plt.show()
