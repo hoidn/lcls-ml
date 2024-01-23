@@ -130,26 +130,19 @@ def main():
         idx = np.where(diff==diff.min())[0][0]
         xvar[i] = xvar_unique[idx]
 
-
     I0_a = rr.ipm2.sum[:]
-
     I0_x = rr.ipm2.xpos[:]
     I0_y = rr.ipm2.ypos[:]
 
-
     arg = (I0_x<(xc+0.2))&(I0_x>(xc-0.2))&(I0_y<(yc+0.5))&(I0_y>(yc-0.5))
 
-
     mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
-
-    imgs_thresh.shape
 
     im = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_90)==1.),:,:].mean(axis=0)
     im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
 
     im1 = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_91)==1.),:,:].mean(axis=0)
     im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
-
 
     roi = [0,im.shape[0]-30,0,im.shape[1]-30]
     cdw_mask = np.zeros_like(im)
