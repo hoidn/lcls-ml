@@ -16,19 +16,22 @@ def memoize_subsampled(func):
 
     @functools.wraps(func)
     def wrapper(data, *args, **kwargs):
-        shape_str = str(data.shape)
+        # Generate a hashable key from a deterministic subsample
+        shape_str = str(data.shape)  # Convert shape to string to use it as a seed
         seed_value = int(hashlib.sha256(shape_str.encode()).hexdigest(), 16) % 10**8
         random.seed(seed_value)
 
-        subsample_size = min(100, data.shape[0])
+        subsample_size = min(100, data.shape[0])  # Limit the subsample size to a maximum of 100
         subsample_indices = random.sample(range(data.shape[0]), subsample_size)
         subsample = data[subsample_indices]
 
         hashable_key = hashlib.sha256(subsample.tobytes()).hexdigest()
 
+        # Check cache
         if hashable_key in cache:
             return cache[hashable_key]
 
+        # Calculate the result and store it in the cache
         result = func(data, *args, **kwargs)
         cache[hashable_key] = result
 
@@ -36,6 +39,7 @@ def memoize_subsampled(func):
 
     return wrapper
 
+# TODO: test this version
 import json
 
 def memoize_general(func):
@@ -73,30 +77,81 @@ def memoize_general(func):
 
     return wrapper
 
+#import functools
+#import hashlib
+#import json
+#import numpy as np
+#import random
+#import sys
+#
+#def get_object_hash(obj):
+#    """
+#    Generate a hash for an object. Uses subsampling for large numpy arrays
+#    and standard serialization for other types.
+#    """
+#    if isinstance(obj, np.ndarray) and obj.nbytes > 1000000:  # Subsampling for large arrays
+#        seed_value = int(hashlib.sha256(str(obj.shape).encode()).hexdigest(), 16) % 10**8
+#        random.seed(seed_value)
+#
+#        subsample_size = min(100, obj.size)  # Sample size of 100 or less
+#        subsample_indices = random.sample(range(obj.size), subsample_size)
+#        subsample = obj.flat[subsample_indices]
+#
+#        return hashlib.sha256(subsample.tobytes()).hexdigest()
+#    else:
+#        try:
+#            return hashlib.sha256(json.dumps(obj, default=str).encode()).hexdigest()
+#        except (TypeError, OverflowError):
+#            return 'unserializable_type'
+#
+#def memoize_general(func):
+#    cache = {}
+#
+#    @functools.wraps(func)
+#    def wrapper(*args, **kwargs):
+#        composite_key_parts = [get_object_hash(arg) for arg in args]
+#        composite_key = hashlib.sha256("".join(composite_key_parts).encode()).hexdigest()
+#
+#        if composite_key in cache:
+#            return cache[composite_key]
+#
+#        result = func(*args, **kwargs)
+#        cache[composite_key] = result
+#        return result
+#
+#    return wrapper
+
 from numba import jit
 
+# # Optimizing the function using Numba
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
     """Generate histograms for the data using vectorized methods."""
     bins = len(bin_boundaries) - 1
     rows, cols = data.shape[1], data.shape[2]
     hist_shape = (bins, rows, cols)
 
+    # Reshape the data for easier computation
     reshaped_data = data.reshape(-1, rows * cols)
 
+    # Perform digitization
+    #bin_indices = np.digitize(reshaped_data, bin_boundaries) - 1
     bin_indices = np.digitize(reshaped_data, bin_boundaries)
 
+    # Initialize histograms
     histograms = np.zeros(hist_shape, dtype=np.float64)
 
+    # Populate histograms using bincount and sum along the zeroth axis
     for i in range(rows * cols):
-        valid_indices = bin_indices[:, i] < bins
+        valid_indices = bin_indices[:, i] < bins  # Exclude indices that fall outside the bin range or equal to the last boundary
         histograms[:, i // cols, i % cols] = np.bincount(bin_indices[:, i][valid_indices], minlength=bins)
         # TODO efficiency
         # counts beyond max go into the first bin, otherwise they don't
         # contribute to the EMD
         histograms[hist_start_bin, i // cols, i % cols] += np.sum(reshaped_data[:, i] > bin_boundaries[-1])
 
+    # Add small constant
     histograms += 1e-9
-    normalized_histograms = histograms
+    normalized_histograms = histograms #/ (1e-9 + np.sum(histograms, axis=0))
 
     return normalized_histograms[hist_start_bin:, :, :]
 #def calculate_histograms(data, bin_boundaries, hist_start_bin):
@@ -147,12 +202,15 @@ def generate_null_distribution(histograms, average_histogram, roi_x_start, roi_x
     null_emd_values = []
     roi_histograms = histograms[:, roi_x_start:roi_x_end, roi_y_start:roi_y_end]
 
+    # Number of bins in the histogram
     num_bins = roi_histograms.shape[0]
 
+    # Number of x and y indices in the ROI
     num_x_indices = roi_x_end - roi_x_start
     num_y_indices = roi_y_end - roi_y_start
 
     for _ in range(num_permutations):
+        # Vectorized resampling of x, y indices for each value of the 0th index (each bin of the histogram)
         random_x_indices = choice(range(num_x_indices), size=num_bins)
         random_y_indices = choice(range(num_y_indices), size=num_bins)
 
@@ -177,9 +235,12 @@ def identify_roi_connected_cluster(p_values, threshold, roi_x_start, roi_x_end, 
     seed_y = (roi_y_start + roi_y_end) // 2
     roi_cluster_label = labeled_array[seed_x, seed_y]
     return labeled_array, labeled_array == roi_cluster_label
+    #return labeled_array == roi_cluster_label
 
 def sum_histograms_by_mask(histogram_array, binary_mask, agg = 'mean'):
+    # Apply the mask to select histograms
     masked_histograms = histogram_array[:, binary_mask]
+    # Sum the selected histograms
     if agg == 'mean':
         summed_histogram = np.mean(masked_histograms, axis=1)
     elif agg == 'sum':
@@ -199,7 +260,9 @@ def filter_negative_clusters_by_size(cluster_array, M=10):
     small_cluster_mask = np.isin(labeled_array, small_clusters)
     return np.logical_or(cluster_array, small_cluster_mask)
 
+# from your_module import run_histogram_analysis, filter_negative_clusters_by_size
 
+# TODO refactor
 def rectify_filter_mask(mask, data):
     imgs_sum = data.sum(axis = 0)
     if mask.sum() == 0:
@@ -213,10 +276,12 @@ def rectify_filter_mask(mask, data):
 
 def infill_binary_array(data, array):
     imgs_sum = data.sum(axis = 0)
+    # Label connected components
     labeled_array, num_features = label(
         rectify_filter_mask(
             array, data))
 
+    # Find the largest component
     largest_component = 0
     largest_size = 0
     for i in range(1, num_features + 1):
@@ -225,6 +290,7 @@ def infill_binary_array(data, array):
             largest_size = size
             largest_component = i
 
+    # Create new binary image
     infilled_array = (labeled_array == largest_component)
 
     return infilled_array
@@ -267,6 +333,8 @@ def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries,
     energies = bin_boundaries[hist_start_bin + 1:]
     summed_histogram = sum_histograms_by_mask(histogram_array, binary_mask, agg = agg)
     summed_histogram_signal = sum_histograms_by_mask(histogram_array, ~binary_mask, agg = agg)
+#     aggregate_histogram = np.sum(histogram_array, axis=(1, 2))
+#     histogram_difference = aggregate_histogram - summed_histogram
 
     fig, axes = plt.subplots(3, 1, figsize=(12, 18))
 
@@ -314,6 +382,8 @@ def run_histogram_analysis(data = None, histograms=None, bin_boundaries=np.arang
         rectify_filter_mask(
             roi_connected_cluster, histograms), M=cluster_size_threshold)
 
+    # TODO refactor, this should go into run_histogram_analysis
+    # Also run_histogram_analysis should return a dict
     signal_mask = infill_binary_array(histograms,
                                             signal_mask)
     return {
@@ -325,6 +395,7 @@ def run_histogram_analysis(data = None, histograms=None, bin_boundaries=np.arang
         "labeled_array": labeled_array,
         "signal_mask": signal_mask
     }
+#     return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution, signal_mask
 
 def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
     seed_x = (roi_x_start + roi_x_end) // 2
@@ -334,18 +405,74 @@ def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y
 
     visualize_clusters(roi_connected_cluster, 'Cluster Connected to the ROI')
 
-def filter_and_sum_histograms(histograms, energies, Emin, Emax):
-    energy_mask = (energies >= Emin) & (energies <= Emax)
+#def filter_and_sum_histograms(histograms, energies, Emin, Emax):
+#    # Create a mask based on energy constraints
+#    energy_mask = (energies >= Emin) & (energies <= Emax)
+#
+#    # Apply the energy mask to the histograms
+#    filtered_histograms = histograms[energy_mask, :, :]
+#
+#    # Sum along the 0th axis
+#    summed_histograms = np.sum(filtered_histograms, axis=0)
+#
+#    return summed_histograms
 
+def filter_and_sum_histograms(histograms, energies, Emin, Emax):
+    # Calculate central energy and window size
+    E0 = (Emax + Emin) / 2
+    window_size = Emax - Emin
+
+    # Initialize a mask with False values
+    energy_mask = np.zeros_like(energies, dtype=bool)
+
+    # Loop through the first three harmonics
+    for n in range(1, 4):
+        # Calculate window size and center energy for the nth harmonic
+        harmonic_window_size = np.sqrt(n) * window_size
+        harmonic_center_energy = n * E0
+
+        # Calculate the energy bounds for the nth harmonic
+        harmonic_Emin = harmonic_center_energy - harmonic_window_size / 2
+        harmonic_Emax = harmonic_center_energy + harmonic_window_size / 2
+
+        # Update the mask to include the nth harmonic energies
+        energy_mask |= ((energies >= harmonic_Emin) & (energies <= harmonic_Emax))
+
+    # Apply the energy mask to the histograms
     filtered_histograms = histograms[energy_mask, :, :]
 
+    # Sum along the 0th axis
     summed_histograms = np.sum(filtered_histograms, axis=0)
 
     return summed_histograms
 
 # TODO parameterize
-Emin, Emax = 8, 10
-def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, buf1=10, buf2=20, background_mask_multiple=1.0, thickness=10):
+def calculate_signal_background_from_histograms(local_histograms, signal_mask,
+        bin_boundaries, hist_start_bin,
+        background_mask_multiple=1.0, thickness=10, Emin = 8, Emax = 10):
+    """
+    """
+    energies = bin_boundaries[hist_start_bin + 1:]
+    integrated_counts = filter_and_sum_histograms(local_histograms, energies, Emin, Emax)
+
+    # Using the new function to create the background mask
+    background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
+
+    signal, bg = background_subtraction(integrated_counts, signal_mask, background_mask)
+    # Poisson statistics for variance
+    var_signal = signal  # variance for signal
+    var_bg = bg  # variance for background
+
+    nsignal = np.sum(signal_mask)
+    nbg = np.sum(background_mask)
+
+    # Combined variance in quadrature
+    total_var = var_signal + (var_bg * ((nsignal / nbg)**2))
+
+    return signal, bg, total_var
+
+def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, background_mask_multiple=1.0, thickness=10,
+                                     **kwargs):
     """
     Updated version of calculate_signal_background_noI0 function to use the new background mask calculation method.
 
@@ -354,21 +481,9 @@ def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_sta
     - thickness: int, thickness of the background buffer.
     """
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
-    energies = bin_boundaries[hist_start_bin + 1:]
-    integrated_counts = filter_and_sum_histograms(local_histograms, energies, Emin, Emax)
-
-    background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
-
-    signal, bg = background_subtraction(integrated_counts, signal_mask, background_mask)
-    var_signal = signal
-    var_bg = bg
-
-    nsignal = np.sum(signal_mask)
-    nbg = np.sum(background_mask)
-
-    total_var = var_signal + (var_bg * ((nsignal / nbg)**2))
-
-    return signal, bg, total_var
+    return calculate_signal_background_from_histograms(local_histograms,
+                signal_mask, bin_boundaries, hist_start_bin,
+                background_mask_multiple=1.0, thickness=10, **kwargs)
 
 def calculate_average_counts(integrated_counts: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
     counts_in_buffer = integrated_counts[buffer]
@@ -383,6 +498,7 @@ def calculate_total_counts(integrated_counts: np.ndarray, signal_mask: np.ndarra
     return S
 
 def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
+    # TODO unequal signal and background
     N = np.sum(signal_mask)
     M = calculate_total_counts(integrated_counts, buffer)
     if M is None:
@@ -392,7 +508,7 @@ def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarra
     result = S - N * M
     return result
 
-def create_background_mask(signal_mask, background_mask_multiple, thickness):
+def create_background_mask(signal_mask, background_mask_multiple, thickness, separator_thickness = 5):
     """
     Creates a background mask based on the given signal mask, a multiple of its size, and thickness.
 
@@ -407,8 +523,10 @@ def create_background_mask(signal_mask, background_mask_multiple, thickness):
     num_pixels_signal_mask = np.sum(signal_mask)
     num_pixels_background_mask = int(num_pixels_signal_mask * background_mask_multiple)
 
+    # Create the background mask using continuous buffer
     background_mask = create_continuous_buffer(signal_mask,
-                initial_thickness=thickness, num_pixels=num_pixels_background_mask)
+                initial_thickness=thickness, num_pixels=num_pixels_background_mask,
+                                               separator_thickness = separator_thickness)
     return background_mask
 
 def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10,
@@ -427,9 +545,12 @@ def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 1
     """
     if num_pixels > np.prod(signal_mask.shape) - np.sum(signal_mask):
         raise ValueError
+    assert signal_mask.sum() > 0
     # Create a gap between the signal mask and the buffer
     dilated_signal = binary_dilation(signal_mask, iterations=separator_thickness)
+    #gap_mask = dilated_signal & (~signal_mask)
 
+    # Adjust the buffer to meet or exceed the target number of pixels
     current_num_pixels = 0
     thickness = 0
     while num_pixels is not None and current_num_pixels < num_pixels:
