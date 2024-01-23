@@ -99,6 +99,7 @@ parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc fi
 parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")parser.add_argument("--use_mask", action="store_true", help="Use mask for analysis")
+parser.add_argument("--xvar_option", type=int, default=2, choices=[1, 2], help="Option for calculating xvar: 1 for lasDelay, 2 for lasDelay2 with FLTPOS_PS (default)")
 
 args = parser.parse_args()
 
@@ -135,8 +136,11 @@ idx_on.shape,idx_off.shape
 # xvar option 1
 #xvar = rr.enc.lasDelay
 # xvar option 2
-xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
-xvar= np.round(xvar)
+if args.xvar_option == 1:
+    xvar = rr.enc.lasDelay
+else:
+    xvar = rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
+    xvar = np.round(xvar)
 
 xvar_unique = np.array(list(set(xvar)))
 idx_nan = np.where(np.isnan(xvar_unique)==1.)
