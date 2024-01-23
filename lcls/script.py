@@ -77,6 +77,8 @@ def main():
     parser.add_argument("--I0_thres", type=int, default=200, help="I0 monitor threshold")
     parser.add_argument("--xc", type=float, default=-0.08, help="X-coordinate center")
     parser.add_argument("--yc", type=float, default=-0.28, help="Y-coordinate center")
+    parser.add_argument("--xc_range", type=float, default=0.2, help="Range for xc filtering")
+    parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
     parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 
     args = parser.parse_args()
@@ -93,6 +95,8 @@ def main():
     I0_thres = args.I0_thres
     xc = args.xc
     yc = args.yc
+    xc_range = args.xc_range
+    yc_range = args.yc_range
     min_peak_pixcount = args.min_peak_pixcount
 
     rr = SMD_Loader(run, exp, h5dir)
@@ -134,7 +138,7 @@ def main():
     I0_x = rr.ipm2.xpos[:]
     I0_y = rr.ipm2.ypos[:]
 
-    arg = (I0_x<(xc+0.2))&(I0_x>(xc-0.2))&(I0_y<(yc+0.5))&(I0_y>(yc-0.5))
+    arg = (I0_x<(xc+xc_range))&(I0_x>(xc-xc_range))&(I0_y<(yc+yc_range))&(I0_y>(yc-yc_range))
 
     mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
 
