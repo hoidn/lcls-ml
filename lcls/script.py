@@ -65,7 +65,7 @@ def save_signal_mask_as_png(signal_mask, file_path='signal_mask.png', resolution
     assert isinstance(resolution, int) and resolution > 0, "resolution must be a positive integer"
 
     plt.imshow(signal_mask)
-    plt.axis('off')  # Optional: Remove axes for cleaner image
+    plt.title('Signal mask')
     plt.savefig(file_path, format='png', dpi=resolution)
     plt.close()  # Close the plot to free up memory
 
@@ -132,6 +132,9 @@ idx_on = np.where(np.array(rr.evr.code_90)==1.)[0]
 idx_off = np.where(np.array(rr.evr.code_91)==1.)[0]
 idx_on.shape,idx_off.shape
 
+# xvar option 1
+#xvar = rr.enc.lasDelay
+# xvar option 2
 xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
 xvar= np.round(xvar)
 
@@ -163,13 +166,16 @@ if estimate_center_flag:
 
 arg = (I0_x<(xc+xc_range))&(I0_x>(xc-xc_range))&(I0_y<(yc+yc_range))&(I0_y>(yc-yc_range))
 
+# TODO this has to be set manually
 mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
 
 im = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_90)==1.),:,:].mean(axis=0)
-im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
+if use_mask:
+    im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
 
 im1 = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_91)==1.),:,:].mean(axis=0)
-im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
+if use_mask:
+    im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
 
 roi = [0,im.shape[0]-30,0,im.shape[1]-30]
 cdw_mask = np.zeros_like(im)
@@ -193,7 +199,8 @@ histograms = histogram_analysis.calculate_histograms(data, bin_boundaries, hist_
 tmp = histograms.copy()
 histograms = tmp.copy()
 
-set_nearest_neighbors(histograms, mask, roi_crop)
+if use_mask:
+    set_nearest_neighbors(histograms, mask, roi_crop)
 
 plt.imshow(histograms.sum(axis = 0))
 plt.colorbar()
