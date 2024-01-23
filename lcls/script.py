@@ -57,6 +57,18 @@ def plot_data_bokeh(data, plot_title='Normalized Signal vs Time Delay'):
 
     save(p)
 
+def save_signal_mask_as_png(signal_mask, file_path='signal_mask.png', resolution=300):
+    """
+    """
+    assert isinstance(signal_mask, (list, tuple, np.ndarray)), "signal_mask must be a 2D array-like structure"
+    assert isinstance(file_path, str), "file_path must be a string"
+    assert isinstance(resolution, int) and resolution > 0, "resolution must be a positive integer"
+
+    plt.imshow(signal_mask)
+    plt.axis('off')  # Optional: Remove axes for cleaner image
+    plt.savefig(file_path, format='png', dpi=resolution)
+    plt.close()  # Close the plot to free up memory
+
 def SMD_Loader(Run_Number, exp, h5dir):
     # Load the Small Data
     fname = '{}_Run{:04d}.h5'.format(exp,Run_Number)
@@ -70,135 +82,131 @@ def estimate_center(I0_x, I0_y):
     I0_x_mean,I0_y_mean = I0_x[arg].mean(),I0_y[arg].mean() # Mean position
     return I0_x_mean,I0_y_mean
 
-def main():
-    parser = argparse.ArgumentParser(description="Process X-ray data.")
-    parser.add_argument("run", type=int, help="Experiment run number")
-    parser.add_argument("exp", type=str, help="Experiment identifier")
-    parser.add_argument("h5dir", type=str, help="Directory for h5 files")
-    parser.add_argument("roi_crop", nargs=4, type=int, help="ROI crop coordinates")
-    parser.add_argument("roi_coordinates", nargs=4, type=int, help="ROI coordinates")
-    parser.add_argument("E0", type=float, help="X-ray energy")
-    parser.add_argument("--background_mask_multiple", type=float, default=1, help="Background mask multiple")
-    parser.add_argument("--separator_thickness", type=int, default=10, help="Separator thickness")
-    parser.add_argument("--I0_thres", type=int, default=200, help="I0 monitor threshold")
-    parser.add_argument("--xc", type=float, default=-0.08, help="X-coordinate center")
-    parser.add_argument("--yc", type=float, default=-0.28, help="Y-coordinate center")
-    parser.add_argument("--xc_range", type=float, default=0.2, help="Range for xc filtering")
-    parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
-    parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
+parser = argparse.ArgumentParser(description="Process X-ray data.")
+parser.add_argument("run", type=int, help="Experiment run number")
+parser.add_argument("exp", type=str, help="Experiment identifier")
+parser.add_argument("h5dir", type=str, help="Directory for h5 files")
+parser.add_argument("roi_crop", nargs=4, type=int, help="ROI crop coordinates")
+parser.add_argument("roi_coordinates", nargs=4, type=int, help="ROI coordinates")
+parser.add_argument("E0", type=float, help="X-ray energy")
+parser.add_argument("--background_mask_multiple", type=float, default=1, help="Background mask multiple")
+parser.add_argument("--separator_thickness", type=int, default=10, help="Separator thickness")
+parser.add_argument("--I0_thres", type=int, default=200, help="I0 monitor threshold")
+parser.add_argument("--xc", type=float, default=-0.08, help="X-coordinate center")
+parser.add_argument("--yc", type=float, default=-0.28, help="Y-coordinate center")
+parser.add_argument("--xc_range", type=float, default=0.2, help="Range for xc filtering")
+parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
+parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 
-    parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
-    args = parser.parse_args()
+parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
+args = parser.parse_args()
 
-    # Replace hardcoded values with args
-    run = args.run
-    exp = args.exp
-    h5dir = Path(args.h5dir)
-    roi_crop = args.roi_crop
-    roi_coordinates = args.roi_coordinates
-    E0 = args.E0
-    background_mask_multiple = args.background_mask_multiple
-    separator_thickness = args.separator_thickness
-    I0_thres = args.I0_thres
-    xc = args.xc
-    yc = args.yc
-    xc_range = args.xc_range
-    yc_range = args.yc_range
-    min_peak_pixcount = args.min_peak_pixcount
-    estimate_center_flag = args.estimate_center
+# Replace hardcoded values with args
+run = args.run
+exp = args.exp
+h5dir = Path(args.h5dir)
+roi_crop = args.roi_crop
+roi_coordinates = args.roi_coordinates
+E0 = args.E0
+background_mask_multiple = args.background_mask_multiple
+separator_thickness = args.separator_thickness
+I0_thres = args.I0_thres
+xc = args.xc
+yc = args.yc
+xc_range = args.xc_range
+yc_range = args.yc_range
+min_peak_pixcount = args.min_peak_pixcount
+estimate_center_flag = args.estimate_center
 
-    rr = SMD_Loader(run, exp, h5dir)
-    rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()] # ROI used for generating the Small Data
-    idx_tile = rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][0,0]
-    print(rr.jungfrau1M.ROI_0_area.shape)
+rr = SMD_Loader(run, exp, h5dir)
+rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()] # ROI used for generating the Small Data
+idx_tile = rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][0,0]
+print(rr.jungfrau1M.ROI_0_area.shape)
 
-    imgs_thresh = rr.jungfrau1M.ROI_0_area[:,roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
-    imgs_thresh[imgs_thresh<4.] = 0
+imgs_thresh = rr.jungfrau1M.ROI_0_area[:,roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
+imgs_thresh[imgs_thresh<4.] = 0
 
-    idx_on = np.where(np.array(rr.evr.code_90)==1.)[0]
-    idx_off = np.where(np.array(rr.evr.code_91)==1.)[0]
-    idx_on.shape,idx_off.shape
+idx_on = np.where(np.array(rr.evr.code_90)==1.)[0]
+idx_off = np.where(np.array(rr.evr.code_91)==1.)[0]
+idx_on.shape,idx_off.shape
 
-    xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
-    xvar= np.round(xvar)
+xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
+xvar= np.round(xvar)
 
-    xvar_unique = np.array(list(set(xvar)))
-    idx_nan = np.where(np.isnan(xvar_unique)==1.)
-    xvar_unique = np.delete(xvar_unique,idx_nan)
-    xvar_unique.shape,xvar_unique
+xvar_unique = np.array(list(set(xvar)))
+idx_nan = np.where(np.isnan(xvar_unique)==1.)
+xvar_unique = np.delete(xvar_unique,idx_nan)
+xvar_unique.shape,xvar_unique
 
-    xvar_unique.sort()
-    xvar_unique,xvar_unique.shape
+xvar_unique.sort()
+xvar_unique,xvar_unique.shape
 
-    xvar_unique = np.linspace(xvar_unique.min(),xvar_unique.max(),33)
-    print(xvar_unique)
+xvar_unique = np.linspace(xvar_unique.min(),xvar_unique.max(),33)
+print(xvar_unique)
 
 
-    xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0
-    for i in range(len(xvar)):
-        if np.isnan(xvar[i])==True:
-            continue
-        diff = abs(xvar[i]-xvar_unique)
-        idx = np.where(diff==diff.min())[0][0]
-        xvar[i] = xvar_unique[idx]
+xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0
+for i in range(len(xvar)):
+    if np.isnan(xvar[i])==True:
+        continue
+    diff = abs(xvar[i]-xvar_unique)
+    idx = np.where(diff==diff.min())[0][0]
+    xvar[i] = xvar_unique[idx]
 
-    I0_a = rr.ipm2.sum[:]
-    I0_x = rr.ipm2.xpos[:]
-    I0_y = rr.ipm2.ypos[:]
-    if estimate_center_flag:
-        xc, yc = estimate_center(I0_x, I0_y)
+I0_a = rr.ipm2.sum[:]
+I0_x = rr.ipm2.xpos[:]
+I0_y = rr.ipm2.ypos[:]
+if estimate_center_flag:
+    xc, yc = estimate_center(I0_x, I0_y)
 
-    arg = (I0_x<(xc+xc_range))&(I0_x>(xc-xc_range))&(I0_y<(yc+yc_range))&(I0_y>(yc-yc_range))
+arg = (I0_x<(xc+xc_range))&(I0_x>(xc-xc_range))&(I0_y<(yc+yc_range))&(I0_y>(yc-yc_range))
 
-    mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
+mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
 
-    im = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_90)==1.),:,:].mean(axis=0)
-    im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
+im = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_90)==1.),:,:].mean(axis=0)
+im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
 
-    im1 = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_91)==1.),:,:].mean(axis=0)
-    im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
+im1 = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_91)==1.),:,:].mean(axis=0)
+im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
 
-    roi = [0,im.shape[0]-30,0,im.shape[1]-30]
-    cdw_mask = np.zeros_like(im)
-    cdw_mask[roi[0]:roi[1],roi[2]:roi[3]] = 1.
-    print(roi)
+roi = [0,im.shape[0]-30,0,im.shape[1]-30]
+cdw_mask = np.zeros_like(im)
+cdw_mask[roi[0]:roi[1],roi[2]:roi[3]] = 1.
+print(roi)
 
-    ims_crop = imgs_thresh
-    I = ims_crop.mean(axis=(1,2))
+ims_crop = imgs_thresh
+I = ims_crop.mean(axis=(1,2))
 
-    background_mask_multiple = helpers.background_mask_multiple = 1
-    separator_thickness = helpers.separator_thickness = 10
-    min_peak_pixcount = 1000
+background_mask_multiple = helpers.background_mask_multiple = 1
+separator_thickness = helpers.separator_thickness = 10
+min_peak_pixcount = 1000
 
-    # Redefine bin boundaries
-    bin_boundaries = np.arange(5, 30, .2)
-    hist_start_bin = 1
+# Redefine bin boundaries
+bin_boundaries = np.arange(5, 30, .2)
+hist_start_bin = 1
 
-    data = imgs_thresh#[:7000, ...]#load_data(filepath)
-    histograms = histogram_analysis.calculate_histograms(data, bin_boundaries, hist_start_bin)
+data = imgs_thresh#[:7000, ...]#load_data(filepath)
+histograms = histogram_analysis.calculate_histograms(data, bin_boundaries, hist_start_bin)
 
-    tmp = histograms.copy()
-    histograms = tmp.copy()
+tmp = histograms.copy()
+histograms = tmp.copy()
 
-    set_nearest_neighbors(histograms, mask, roi_crop)
+set_nearest_neighbors(histograms, mask, roi_crop)
 
-    plt.imshow(histograms.sum(axis = 0))
-    plt.colorbar()
+plt.imshow(histograms.sum(axis = 0))
+plt.colorbar()
 
-    # TODO use just laser off histograms
-    signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_boundaries, hist_start_bin,
-                            roi_coordinates, histograms,
-                            threshold_lower=0.0, threshold_upper=.3, num_threshold_points=15)
+# TODO use just laser off histograms
+signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_boundaries, hist_start_bin,
+                        roi_coordinates, histograms,
+                        threshold_lower=0.0, threshold_upper=.3, num_threshold_points=15)
 
-    auto_signal_mask = erode_to_target(signal_mask, min_peak_pixcount)
+auto_signal_mask = erode_to_target(signal_mask, min_peak_pixcount)
+save_signal_mask_as_png(auto_signal_mask)
 
-    np.sqrt(signal_mask.sum())
-    # plt.imshow(auto_signal_mask)
+np.sqrt(signal_mask.sum())
+# plt.imshow(auto_signal_mask)
 
-    cdw_output = generate_intensity_data(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr, background_mask_multiple)
-    plot_data_bokeh(cdw_output)
-
-if __name__ == "__main__":
-    main()
-
+cdw_output = generate_intensity_data(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr, background_mask_multiple)
+plot_data_bokeh(cdw_output)
 
