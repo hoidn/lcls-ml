@@ -87,6 +87,7 @@ def main():
     parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
     parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 
+    parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
     args = parser.parse_args()
 
     # Replace hardcoded values with args
@@ -104,6 +105,7 @@ def main():
     xc_range = args.xc_range
     yc_range = args.yc_range
     min_peak_pixcount = args.min_peak_pixcount
+    estimate_center_flag = args.estimate_center
 
     rr = SMD_Loader(run, exp, h5dir)
     rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()] # ROI used for generating the Small Data
@@ -143,6 +145,8 @@ def main():
     I0_a = rr.ipm2.sum[:]
     I0_x = rr.ipm2.xpos[:]
     I0_y = rr.ipm2.ypos[:]
+    if estimate_center_flag:
+        xc, yc = estimate_center(I0_x, I0_y)
 
     arg = (I0_x<(xc+xc_range))&(I0_x>(xc-xc_range))&(I0_y<(yc+yc_range))&(I0_y>(yc-yc_range))
 
