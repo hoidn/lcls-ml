@@ -12,7 +12,6 @@ from standard_workflow import generate_intensity_data
 from maskutils import generate_mask, erode_to_target, set_nearest_neighbors
 from pump_probe import optimize_signal_mask
 
-from plots import geometric_mean
 def plot_data_bokeh(data, plot_title='Normalized Signal vs Time Delay'):
     output_file("plot.html")
 
@@ -29,18 +28,21 @@ def plot_data_bokeh(data, plot_title='Normalized Signal vs Time Delay'):
     x_min = min(min(delays_on), min(delays_off))
     x_max = max(max(delays_on), max(delays_off))
 
-    # Plot 1 - Normalized Signal vs Time Delay
+    # Plot 1 - Normalized Signal vs Time Delay modifications
     p1 = figure(title=plot_title, x_axis_label='Time Delay (ps)', y_axis_label='Normalized Signal', x_range=(x_min, x_max))
     p1.circle(delays_on, norm_signal_on, legend_label='Laser On: Signal', color="red")
+    p1.line(delays_on, norm_signal_on, color="red", legend_label='Laser On: Connected')  # Added line
     p1.circle(delays_off, norm_signal_off, legend_label='Laser Off: Signal', color="black")
+    p1.line(delays_off, norm_signal_off, color="black", legend_label='Laser Off: Connected')  # Added line
 
-    # Adding error bars
-    p1.segment(delays_on, norm_signal_on - std_dev_on, delays_on, norm_signal_on + std_dev_on, color="red")
-    p1.segment(delays_off, norm_signal_off - std_dev_off, delays_off, norm_signal_off + std_dev_off, color="black")
+    # Enhanced error bars with increased thickness
+    p1.segment(delays_on, norm_signal_on - std_dev_on, delays_on, norm_signal_on + std_dev_on, color="red", line_width=2)
+    p1.segment(delays_off, norm_signal_off - std_dev_off, delays_off, norm_signal_off + std_dev_off, color="black", line_width=2)
+
 
     # Plot 2 - -log(P-value) vs Time Delay
     neg_log_p_values = [-np.log10(p) if p > 0 else 0 for p in relative_p_values]
-    p2 = figure(title=f'FOM: {-np.log10(geometric_mean([p for p in relative_p_values if p > 0])):.2f}', x_axis_label='Time Delay', y_axis_label='-log(P-value)', x_range=(x_min, x_max))
+    p2 = figure(title='-log(P-value) vs Time Delay', x_axis_label='Time Delay', y_axis_label='-log(P-value)', x_range=(x_min, x_max))
     p2.circle(sorted(set(delays_on) & set(delays_off)), neg_log_p_values, color="red", legend_label='-log(p-value)')
 
     # Threshold lines and labels
@@ -63,6 +65,10 @@ def SMD_Loader(Run_Number, exp, h5dir):
     print(fname)
     return rr
 
+def estimate_center(I0_x, I0_y):
+    arg = (abs(I0_x)<2.)&(abs(I0_y)<3.)
+    I0_x_mean,I0_y_mean = I0_x[arg].mean(),I0_y[arg].mean() # Mean position
+    return I0_x_mean,I0_y_mean
 
 def main():
     parser = argparse.ArgumentParser(description="Process X-ray data.")
