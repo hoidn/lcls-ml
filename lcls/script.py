@@ -110,6 +110,7 @@ parser.add_argument("--yc", type=float, default=-0.28, help="Y-coordinate center
 parser.add_argument("--xc_range", type=float, default=0.2, help="Range for xc filtering")
 parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
 parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
+parser.add_argument("--Time_bin", type=float, default=2.0, help="Time bin width in picoseconds")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
 parser.add_argument("--use_mask", action="store_true", help="Use mask for analysis")
@@ -135,6 +136,7 @@ yc_range = args.yc_range
 min_peak_pixcount = args.min_peak_pixcount
 use_mask = args.use_mask
 estimate_center_flag = args.estimate_center
+Time_bin = args.Time_bin
 delay_option = args.delay_option
 
 rr = SMD_Loader(run, exp, h5dir)
