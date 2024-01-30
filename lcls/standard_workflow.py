@@ -17,6 +17,7 @@ def calculate_std_over_0th_axis(images, I0):
 
 def process_data(signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr):
     ims_group, ims_group_off, ims_group_std, ims_group_off_std, scan_motor = [], [], [], [], []
+    print('xvar unique in process_data', xvar_unique)
     for xvar_val in xvar_unique:
         idx = np.where(arg & (I > 0.0) & (xvar == xvar_val) & (I0_a > I0_thres) & (I0_a < 15000) & (np.array(rr.evr.code_90) == 1))
         idx_off = np.where(arg & (I > 0.0) & (xvar == xvar_val) & (I0_a > I0_thres) & (I0_a < 15000) & (np.array(rr.evr.code_91) == 1))
@@ -43,6 +44,7 @@ def process_data(signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_cro
     std = np.array([np.sqrt(np.sum(group**2)) / np.sqrt(ssum * len(idx[0])) for group in ims_group_std])  # Sum in quadrature for standard deviation
     bg = np.array([np.mean(group) for group in ims_group_off])
 
+    print('scan_motor in process_data', xvar_unique)
     return scan_motor, Intensity, std, bg
 
 def calculate_intensity_differences(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr, background_mask_multiple):
@@ -68,6 +70,7 @@ def generate_intensity_data(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I
     # Presuming the existence of calculate_intensity_differences, normalize_signal, and calculate_p_value functions
     # Calculate intensity differences
     delays, intensity_diff_on, intensity_diff_off, std_quadrature = calculate_intensity_differences(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr, background_mask_multiple)
+    print('top level delays', delays)
 
     # Normalize the signals
     norm_signal_on = intensity_diff_on
