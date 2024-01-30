@@ -98,8 +98,10 @@ parser.add_argument("--xc_range", type=float, default=0.2, help="Range for xc fi
 parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
 parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 
-parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")parser.add_argument("--use_mask", action="store_true", help="Use mask for analysis")
-parser.add_argument("--xvar_option", type=int, default=2, choices=[1, 2], help="Option for calculating xvar: 1 for lasDelay, 2 for lasDelay2 with FLTPOS_PS (default)")
+parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
+parser.add_argument("--use_mask", action="store_true", help="Use mask for analysis")
+parser.add_argument("--delay_option", type=int, default=2, choices=[1, 2],
+    help="Option for calculating xvar: 1 for lasDelay, 2 for lasDelay2 with FLTPOS_PS (default)")
 
 args = parser.parse_args()
 
@@ -110,8 +112,8 @@ h5dir = Path(args.h5dir)
 roi_crop = args.roi_crop
 roi_coordinates = args.roi_coordinates
 E0 = args.E0
-background_mask_multiple = args.background_mask_multiple
-separator_thickness = args.separator_thickness
+background_mask_multiple = helpers.background_mask_multiple = args.background_mask_multiple
+separator_thickness = helpers.separator_thickness = args.separator_thickness
 I0_thres = args.I0_thres
 xc = args.xc
 yc = args.yc
@@ -120,6 +122,7 @@ yc_range = args.yc_range
 min_peak_pixcount = args.min_peak_pixcount
 use_mask = args.use_mask
 estimate_center_flag = args.estimate_center
+delay_option = args.delay_option
 
 rr = SMD_Loader(run, exp, h5dir)
 rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()] # ROI used for generating the Small Data
@@ -136,11 +139,11 @@ idx_on.shape,idx_off.shape
 # xvar option 1
 #xvar = rr.enc.lasDelay
 # xvar option 2
-if args.xvar_option == 1:
+if delay_option == 1:
     xvar = rr.enc.lasDelay
 else:
     xvar = rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
-    xvar = np.round(xvar)
+xvar = np.round(xvar)
 
 xvar_unique = np.array(list(set(xvar)))
 idx_nan = np.where(np.isnan(xvar_unique)==1.)
@@ -189,9 +192,6 @@ print(roi)
 ims_crop = imgs_thresh
 I = ims_crop.mean(axis=(1,2))
 
-background_mask_multiple = helpers.background_mask_multiple = 1
-separator_thickness = helpers.separator_thickness = 10
-min_peak_pixcount = 1000
 
 # Redefine bin boundaries
 bin_boundaries = np.arange(5, 30, .2)
