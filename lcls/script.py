@@ -12,6 +12,19 @@ from standard_workflow import generate_intensity_data
 from maskutils import generate_mask, erode_to_target, set_nearest_neighbors
 from pump_probe import optimize_signal_mask
 
+def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
+    """
+    """
+    # TODO the bin values might be off by half a picosecond
+    Time_bin = Time_bin * 1.0
+    delay_min = np.floor(delay_raw[arg_delay_nan==False].min())
+    delay_max = np.ceil(delay_raw[arg_delay_nan==False].max())
+    bins = np.arange(delay_min, delay_max + Time_bin, Time_bin)
+    binned_indices = np.digitize(delay, bins)
+    binned_delays = np.array([bins[idx-1] if idx > 0 else bins[0] for idx in binned_indices])
+#     print('Number of laser delays is: {0:d}, with an interval of {1:.2f} ps.'.format(num_delays,Time_bin))
+    return binned_delays
+
 def plot_data_bokeh(data, plot_title='Normalized Signal vs Time Delay'):
     output_file("plot.html")
 
@@ -140,24 +153,29 @@ idx_on.shape,idx_off.shape
 #xvar = rr.enc.lasDelay
 # xvar option 2
 if delay_option == 1:
+    tt_arg = 0# TODO
     xvar = rr.enc.lasDelay
+    xvar = np.array(rr.enc.lasDelay) + np.array(rr.tt.FLTPOS_PS)*tt_arg # in picosecond
+    arg_delay_nan = np.isnan(xvar) # Some events report NaN
+    xvar_unique = delay_bin(xvar,np.array(rr.enc.lasDelay),Time_bin,arg_delay_nan) # Time binning
+
 else:
     xvar = rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
-xvar = np.round(xvar)
+    xvar = np.round(xvar)
 
-xvar_unique = np.array(list(set(xvar)))
-idx_nan = np.where(np.isnan(xvar_unique)==1.)
-xvar_unique = np.delete(xvar_unique,idx_nan)
-xvar_unique.shape,xvar_unique
+    xvar_unique = np.array(list(set(xvar)))
+    idx_nan = np.where(np.isnan(xvar_unique)==1.)
+    xvar_unique = np.delete(xvar_unique,idx_nan)
+    xvar_unique.shape,xvar_unique
 
-xvar_unique.sort()
-xvar_unique,xvar_unique.shape
+    xvar_unique.sort()
+    xvar_unique,xvar_unique.shape
 
-xvar_unique = np.linspace(xvar_unique.min(),xvar_unique.max(),33)
-print(xvar_unique)
+    xvar_unique = np.linspace(xvar_unique.min(),xvar_unique.max(),33)
+    print(xvar_unique)
 
 
-xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0
+    xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0
 for i in range(len(xvar)):
     if np.isnan(xvar[i])==True:
         continue
