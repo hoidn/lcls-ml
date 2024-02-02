@@ -382,7 +382,7 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
 
 import matplotlib.gridspec as gridspec
 
-def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Delay'):
+def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Delay', save_path='plot.png'):
     fig = plt.gcf()
 
     if subplot_spec is None:
@@ -430,6 +430,8 @@ def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Del
     #ax2.set_ylim(0, 4)
 
     plt.tight_layout()  # Adjust layout to prevent overlapping
+    plt.savefig(save_path)  # Save the figure to a file
+    plt.show()  # Display the figure
 
 def plot_normalized_signal_vs_time_delay(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
     plot_data_dict = generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple)
