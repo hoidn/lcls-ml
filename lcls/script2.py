@@ -112,6 +112,8 @@ parser.add_argument("--xc_range", type=float, default=0.2, help="Range for xc fi
 parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
 parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 parser.add_argument("--Time_bin", type=float, default=2.0, help="Time bin width in picoseconds")
+parser.add_argument("--TimeTool", nargs=2, type=float, default=[0, 0.005], help="TimeTool correction factors")
+parser.add_argument("--Energy_Filter", nargs=2, type=float, default=[0, 5], help="Energy filter range in eV")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
 parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate gaps in the data")
@@ -143,6 +145,8 @@ delay_option = args.delay_option
 
 TimeTool = [0, 0.005]
 Energy_Filter = [E0, 5]
+TimeTool = args.TimeTool
+Energy_Filter = args.Energy_Filter
 
 rr = SMD_Loader(run, exp, h5dir)
 rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()] # ROI used for generating the Small Data
