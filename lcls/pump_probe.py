@@ -34,7 +34,7 @@ def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     return binned_delays
 
 
-def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count):
+def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_mask):
     unique_binned_delays = np.unique(binned_delays)
     stacks = {}
 
@@ -48,6 +48,7 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count):
     for d in unique_binned_delays:
         specific_mask = (filtered_binned_delays == d)
         stack = filtered_imgs[specific_mask]
+        stack *= ROI_mask  # Apply the ROI mask to each stack
 
         if stack.shape[0] >= min_count:
             stacks[d] = stack
@@ -61,7 +62,8 @@ def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bi
 
     # Mask for bad pixels
     idx_tile = rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][0,0]
-    mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
+    full_mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile]
+    ROI_mask = full_mask[ROI[0]:ROI[1], ROI[2]:ROI[3]]
 
     I0 = rr.ipm2.sum[:]
     arg_I0 = (I0 >= I0_Threshold)
