@@ -10,6 +10,16 @@ import histogram_analysis as hist
 #from histogram_analysis import calculate_signal_background_noI0
 calculate_signal_background_noI0 = hist.calculate_signal_background_noI0
 
+import tables
+
+def SMD_Loader(Run_Number, exp, h5dir):
+    # Load the Small Data
+    fname = '{}_Run{:04d}.h5'.format(exp,Run_Number)
+    fname = h5dir / fname
+    rr = tables.open_file(fname).root # Small Data
+    print(fname)
+    return rr
+
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     # Adjust the bin width to ensure it's a float
     Time_bin = float(Time_bin)

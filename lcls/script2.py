@@ -1,6 +1,6 @@
 import argparse
 import numpy as np
-import tables
+from pump_probe import SMD_Loader
 import matplotlib.pyplot as plt
 from pathlib import Path
 from bokeh.plotting import figure, output_file, save
@@ -83,13 +83,6 @@ def save_signal_mask_as_png(signal_mask, file_path='signal_mask.png', resolution
     plt.savefig(file_path, format='png', dpi=resolution)
     plt.close()  # Close the plot to free up memory
 
-def SMD_Loader(Run_Number, exp, h5dir):
-    # Load the Small Data
-    fname = '{}_Run{:04d}.h5'.format(exp,Run_Number)
-    fname = h5dir / fname
-    rr = tables.open_file(fname).root # Small Data
-    print(fname)
-    return rr
 
 def estimate_center(I0_x, I0_y):
     arg = (abs(I0_x)<2.)&(abs(I0_y)<3.)
