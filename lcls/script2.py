@@ -114,7 +114,7 @@ parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum
 parser.add_argument("--Time_bin", type=float, default=2.0, help="Time bin width in picoseconds")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
-parser.add_argument("--use_mask", action="store_true", help="Use mask for analysis")
+parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate gaps in the data")
 parser.add_argument("--delay_option", type=int, default=2, choices=[1, 2],
     help="Option for calculating xvar: 1 for lasDelay, 2 for lasDelay2 with FLTPOS_PS (default)")
 # TODO TimeTool = [0, 0.005]
@@ -136,7 +136,7 @@ yc = args.yc
 xc_range = args.xc_range
 yc_range = args.yc_range
 min_peak_pixcount = args.min_peak_pixcount
-use_mask = args.use_mask
+interpolate_gaps = args.interpolate_gaps
 estimate_center_flag = args.estimate_center
 Time_bin = args.Time_bin
 delay_option = args.delay_option
@@ -224,7 +224,7 @@ tmp = histograms.copy()
 histograms = tmp.copy()
 
 # TODO
-#if use_mask:
+#if interpolate_gaps:
 #    set_nearest_neighbors(histograms, mask, roi_crop)
 
 plt.imshow(histograms.sum(axis = 0))
@@ -249,4 +249,3 @@ cdw_data = pump_probe.generate_plot_data(cdw_output, signal_mask, bin_boundaries
                               hist_start_bin, roi_coordinates, background_mask_multiple)
 #cdw_output = generate_intensity_data(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr, background_mask_multiple)
 plot_data_bokeh(cdw_data)
-
