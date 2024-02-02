@@ -244,7 +244,7 @@ save_signal_mask_as_png(auto_signal_mask)
 np.sqrt(signal_mask.sum())
 # plt.imshow(auto_signal_mask)
 
-cdw_output = CDW_PP(run, roi_crop,
+cdw_output = CDW_PP(run, exp, h5dir, roi_crop,
                     Energy_Filter, I0_thres,
                     [xc_range, yc_range], Time_bin, TimeTool)
 

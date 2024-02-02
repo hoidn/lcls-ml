@@ -55,10 +55,10 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
 
     return stacks
 
-def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool,
+def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool,
           min_count = 200):
-    from ybco import SMD_Loader, EnergyFilter
-    rr = SMD_Loader(Run_Number)  # Small Data Import
+    from script2 import SMD_Loader
+    rr = SMD_Loader(Run_Number, exp, h5dir)  # Small Data Import
 
     # Mask for bad pixels
     idx_tile = rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][0,0]
