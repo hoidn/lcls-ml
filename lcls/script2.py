@@ -227,9 +227,8 @@ histograms = histogram_analysis.calculate_histograms(data, bin_boundaries, hist_
 tmp = histograms.copy()
 histograms = tmp.copy()
 
-# TODO
-#if interpolate_gaps:
-#    set_nearest_neighbors(histograms, mask, roi_crop)
+if interpolate_gaps:
+    set_nearest_neighbors(histograms, mask, roi_crop)
 
 plt.imshow(histograms.sum(axis = 0))
 plt.colorbar()
@@ -252,4 +251,4 @@ cdw_output = CDW_PP(run, roi_crop,
 cdw_data = pump_probe.generate_plot_data(cdw_output, signal_mask, bin_boundaries,
                               hist_start_bin, roi_coordinates, background_mask_multiple)
 #cdw_output = generate_intensity_data(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr, background_mask_multiple)
-plot_data_bokeh(cdw_data)
+pump_probe.plot_data(cdw_data)

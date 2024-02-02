@@ -48,10 +48,10 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
     for d in unique_binned_delays:
         specific_mask = (filtered_binned_delays == d)
         stack = filtered_imgs[specific_mask]
-        stack *= ROI_mask  # Apply the ROI mask to each stack
 
         if stack.shape[0] >= min_count:
-            stacks[d] = stack
+            # TODO
+            stacks[d] = stack #* ROI_mask[None, ...]
 
     return stacks
 
@@ -62,7 +62,7 @@ def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bi
 
     # Mask for bad pixels
     idx_tile = rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][0,0]
-    full_mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile]
+    full_mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
     ROI_mask = full_mask[ROI[0]:ROI[1], ROI[2]:ROI[3]]
 
     I0 = rr.ipm2.sum[:]
@@ -90,8 +90,8 @@ def CDW_PP(Run_Number, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bi
 
     binned_delays = delay_bin(delay, np.array(rr.enc.lasDelay), Time_bin, arg_delay_nan)
 
-    stacks_on = extract_stacks_by_delay(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count)
-    stacks_off = extract_stacks_by_delay(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count)
+    stacks_on = extract_stacks_by_delay(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count, ROI_mask)
+    stacks_off = extract_stacks_by_delay(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count, ROI_mask)
 
     return {
     'stacks_on': stacks_on,
