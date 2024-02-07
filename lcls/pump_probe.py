@@ -67,7 +67,7 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
 
 def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool,
           min_count = 200):
-    from script2 import SMD_Loader
+    from ybco import EnergyFilter
     rr = SMD_Loader(Run_Number, exp, h5dir)  # Small Data Import
 
     # Mask for bad pixels

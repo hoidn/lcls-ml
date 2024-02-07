@@ -151,15 +151,12 @@ idx_on = np.where(np.array(rr.evr.code_90)==1.)[0]
 idx_off = np.where(np.array(rr.evr.code_91)==1.)[0]
 idx_on.shape,idx_off.shape
 
-# xvar option 1
-#xvar = rr.enc.lasDelay
-# xvar option 2
 if delay_option == 1:
     tt_arg = 0# TODO
     xvar = rr.enc.lasDelay
     xvar = np.array(rr.enc.lasDelay) + np.array(rr.tt.FLTPOS_PS)*tt_arg # in picosecond
     arg_delay_nan = np.isnan(xvar) # Some events report NaN
-    xvar_unique = delay_bin(xvar,np.array(rr.enc.lasDelay),Time_bin,arg_delay_nan) # Time binning
+    xvar_unique = np.array(sorted(list(set(delay_bin(xvar,np.array(rr.enc.lasDelay),Time_bin,arg_delay_nan))))) # Time binning
 
 else:
     xvar = rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
@@ -197,17 +194,15 @@ arg = (I0_x<(xc+xc_range))&(I0_x>(xc-xc_range))&(I0_y<(yc+yc_range))&(I0_y>(yc-y
 mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
 
 im = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_90)==1.),:,:].mean(axis=0)
-if use_mask:
-    im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
+im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
 
 im1 = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_91)==1.),:,:].mean(axis=0)
-if use_mask:
-    im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
+im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
 
-roi = [0,im.shape[0]-30,0,im.shape[1]-30]
-cdw_mask = np.zeros_like(im)
-cdw_mask[roi[0]:roi[1],roi[2]:roi[3]] = 1.
-print(roi)
+#roi = [0,im.shape[0]-30,0,im.shape[1]-30]
+#cdw_mask = np.zeros_like(im)
+#cdw_mask[roi[0]:roi[1],roi[2]:roi[3]] = 1.
+#print(roi)
 
 ims_crop = imgs_thresh
 I = ims_crop.mean(axis=(1,2))
@@ -223,8 +218,9 @@ histograms = histogram_analysis.calculate_histograms(data, bin_boundaries, hist_
 tmp = histograms.copy()
 histograms = tmp.copy()
 
-if use_mask:
-    set_nearest_neighbors(histograms, mask, roi_crop)
+# TODO
+#if use_mask:
+#    set_nearest_neighbors(histograms, mask, roi_crop)
 
 plt.imshow(histograms.sum(axis = 0))
 plt.colorbar()

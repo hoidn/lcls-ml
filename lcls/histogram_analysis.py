@@ -530,7 +530,7 @@ def create_background_mask(signal_mask, background_mask_multiple, thickness, sep
     return background_mask
 
 def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10,
-                             num_pixels: int = None, separator_thickness: int = 1) -> np.ndarray:
+                             num_pixels: int = None, separator_thickness: int = 5) -> np.ndarray:
     """
     Create a continuous buffer around a signal mask with a gap, targeting a specific number of pixels.
 

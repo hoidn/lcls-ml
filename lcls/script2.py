@@ -137,7 +137,7 @@ delay_option = args.delay_option
 
 TimeTool = args.TimeTool
 Energy_Width = args.Energy_Width
-Energy_Filter = [E0 - Energy_Width / 2, E0 + Energy_Width / 2]
+Energy_Filter = [E0, Energy_Width]
 IPM_pos_Filter = [xc_range, yc_range]
 
 bin_boundaries = np.arange(5, 30, .2)
