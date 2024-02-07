@@ -104,7 +104,7 @@ parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc fi
 parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 parser.add_argument("--Time_bin", type=float, default=2.0, help="Time bin width in picoseconds")
 parser.add_argument("--TimeTool", nargs=2, type=float, default=[0, 0.005], help="TimeTool correction factors")
-parser.add_argument("--Energy_Filter", nargs=2, type=float, default=[0, 5], help="Energy filter range in eV")
+parser.add_argument("--Energy_Width", type=float, default=5, help="Energy width in eV")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
 parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate gaps in the data")
@@ -136,7 +136,8 @@ Time_bin = args.Time_bin
 delay_option = args.delay_option
 
 TimeTool = args.TimeTool
-Energy_Filter = args.Energy_Filter
+Energy_Width = args.Energy_Width
+Energy_Filter = [E0 - Energy_Width / 2, E0 + Energy_Width / 2]
 IPM_pos_Filter = [xc_range, yc_range]
 
 bin_boundaries = np.arange(5, 30, .2)
