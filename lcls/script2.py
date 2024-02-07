@@ -1,6 +1,5 @@
 import argparse
 import numpy as np
-from pump_probe import SMD_Loader
 import matplotlib.pyplot as plt
 from pathlib import Path
 from bokeh.plotting import figure, output_file, save
@@ -8,10 +7,9 @@ from bokeh.layouts import gridplot
 from bokeh.models import Label
 import standard_workflow as helpers
 import histogram_analysis
-from standard_workflow import generate_intensity_data
-from maskutils import generate_mask, erode_to_target, set_nearest_neighbors
 from pump_probe import optimize_signal_mask, CDW_PP
 import pump_probe
+from maskutils import erode_to_target
 
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     """
@@ -122,6 +120,7 @@ exp = args.exp
 h5dir = Path(args.h5dir)
 roi_crop = args.roi_crop
 roi_coordinates = args.roi_coordinates
+roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
 E0 = args.E0
 background_mask_multiple = helpers.background_mask_multiple = args.background_mask_multiple
 separator_thickness = helpers.separator_thickness = args.separator_thickness
@@ -136,112 +135,89 @@ estimate_center_flag = args.estimate_center
 Time_bin = args.Time_bin
 delay_option = args.delay_option
 
-TimeTool = [0, 0.005]
-Energy_Filter = [E0, 5]
 TimeTool = args.TimeTool
 Energy_Filter = args.Energy_Filter
+IPM_pos_Filter = [xc_range, yc_range]
 
-rr = SMD_Loader(run, exp, h5dir)
-rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()] # ROI used for generating the Small Data
-idx_tile = rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][0,0]
-print(rr.jungfrau1M.ROI_0_area.shape)
-
-imgs_thresh = rr.jungfrau1M.ROI_0_area[:,roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
-imgs_thresh[imgs_thresh<4.] = 0
-
-idx_on = np.where(np.array(rr.evr.code_90)==1.)[0]
-idx_off = np.where(np.array(rr.evr.code_91)==1.)[0]
-idx_on.shape,idx_off.shape
-
-if delay_option == 1:
-    tt_arg = 0# TODO
-    xvar = rr.enc.lasDelay
-    xvar = np.array(rr.enc.lasDelay) + np.array(rr.tt.FLTPOS_PS)*tt_arg # in picosecond
-    arg_delay_nan = np.isnan(xvar) # Some events report NaN
-    xvar_unique = np.array(sorted(list(set(delay_bin(xvar,np.array(rr.enc.lasDelay),Time_bin,arg_delay_nan))))) # Time binning
-
-else:
-    xvar = rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0.
-    xvar = np.round(xvar)
-
-    xvar_unique = np.array(list(set(xvar)))
-    idx_nan = np.where(np.isnan(xvar_unique)==1.)
-    xvar_unique = np.delete(xvar_unique,idx_nan)
-    xvar_unique.shape,xvar_unique
-
-    xvar_unique.sort()
-    xvar_unique,xvar_unique.shape
-
-    xvar_unique = np.linspace(xvar_unique.min(),xvar_unique.max(),33)
-    print(xvar_unique)
-
-
-    xvar=rr.enc.lasDelay2 + np.array(rr.tt.FLTPOS_PS)*0
-for i in range(len(xvar)):
-    if np.isnan(xvar[i])==True:
-        continue
-    diff = abs(xvar[i]-xvar_unique)
-    idx = np.where(diff==diff.min())[0][0]
-    xvar[i] = xvar_unique[idx]
-
-I0_a = rr.ipm2.sum[:]
-I0_x = rr.ipm2.xpos[:]
-I0_y = rr.ipm2.ypos[:]
-if estimate_center_flag:
-    xc, yc = estimate_center(I0_x, I0_y)
-
-arg = (I0_x<(xc+xc_range))&(I0_x>(xc-xc_range))&(I0_y<(yc+yc_range))&(I0_y>(yc-yc_range))
-
-# TODO this has to be set manually
-mask = rr.UserDataCfg.jungfrau1M.mask[idx_tile][rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][1,1],rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,0]:rr.UserDataCfg.jungfrau1M.ROI_0__ROI_0_ROI[()][2,1]]
-
-im = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_90)==1.),:,:].mean(axis=0)
-im = im*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
-
-im1 = imgs_thresh[(I0_a>I0_thres)&(np.array(rr.evr.code_91)==1.),:,:].mean(axis=0)
-im1 = im1*mask[roi_crop[0]:roi_crop[1],roi_crop[2]:roi_crop[3]]
-
-#roi = [0,im.shape[0]-30,0,im.shape[1]-30]
-#cdw_mask = np.zeros_like(im)
-#cdw_mask[roi[0]:roi[1],roi[2]:roi[3]] = 1.
-#print(roi)
-
-ims_crop = imgs_thresh
-I = ims_crop.mean(axis=(1,2))
-
-
-# Redefine bin boundaries
 bin_boundaries = np.arange(5, 30, .2)
 hist_start_bin = 1
 
-data = imgs_thresh#[:7000, ...]#load_data(filepath)
-histograms = histogram_analysis.calculate_histograms(data, bin_boundaries, hist_start_bin)
-
-tmp = histograms.copy()
-histograms = tmp.copy()
-
-if interpolate_gaps:
-    set_nearest_neighbors(histograms, mask, roi_crop)
-
-plt.imshow(histograms.sum(axis = 0))
-plt.colorbar()
-
-# TODO use just laser off histograms
-signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_boundaries, hist_start_bin,
-                        roi_coordinates, histograms,
-                        threshold_lower=0.0, threshold_upper=.3, num_threshold_points=15)
-
-auto_signal_mask = erode_to_target(signal_mask, min_peak_pixcount)
-save_signal_mask_as_png(auto_signal_mask)
-
-np.sqrt(signal_mask.sum())
-# plt.imshow(auto_signal_mask)
-
 cdw_output = CDW_PP(run, exp, h5dir, roi_crop,
                     Energy_Filter, I0_thres,
-                    [xc_range, yc_range], Time_bin, TimeTool)
+                    IPM_pos_Filter, Time_bin, TimeTool)
+
+from typing import List, Dict
+
+def combine_stacks(stacks: List[Dict[float, np.ndarray]]) -> np.ndarray:
+    """
+    Combines multiple stacks into a single 3D numpy array by concatenating the 3D arrays from each stack.
+
+    Parameters:
+        stacks (List[Dict[float, np.ndarray]]): A list of stacks, where each stack is a dictionary mapping time delays to 3D numpy arrays.
+
+    Returns:
+        np.ndarray: A single 3D numpy array obtained by stacking the 3D arrays from all provided stacks.
+    """
+    # Extract all 3D arrays from each stack and concatenate them
+    combined_array = np.concatenate([array for stack in stacks for array in stack.values()], axis=0)
+
+    return combined_array
+
+imgs_thresh = combine_stacks([cdw_output['stacks_off']])
+
+from lcls.histogram_analysis import *
+
+from scipy.stats import wasserstein_distance
+from scipy.ndimage import label
+
+data = imgs_thresh#[:7000, ...]#load_data(filepath)
+histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+
+threshold = .1
+# Run the analysis
+res = run_histogram_analysis(
+    bin_boundaries = bin_boundaries, hist_start_bin = hist_start_bin,
+    roi_x_start = roi_x_start, roi_x_end = roi_x_end, roi_y_start = roi_y_start,
+    roi_y_end = roi_y_end, data = data,
+    threshold = threshold)
+signal_mask = res['signal_mask']
+
+## Counting the number of True pixels in the signal mask
+#true_pixels_count = np.sum(signal_mask)
+#
+## Test values for num_pixels
+#num_pixels_exact = true_pixels_count
+#num_pixels_double = 4 * true_pixels_count
+#
+## Running the create_continuous_buffer function with these test values
+#continuous_buffer_exact = histogram_analysis.create_continuous_buffer(signal_mask, num_pixels = num_pixels_exact)
+#continuous_buffer_double = histogram_analysis.create_continuous_buffer(signal_mask, num_pixels = num_pixels_double)
+#
+## Visualizing the results
+#import matplotlib.pyplot as plt
+#
+#fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+#
+## Plotting the result with exact number of pixels
+#axes[0].imshow(continuous_buffer_exact | signal_mask, cmap='gray')
+#axes[0].set_title(f'BG mask (1x: {num_pixels_exact} pixels)')
+#
+## Plotting the result with double the number of pixels
+#axes[1].imshow(continuous_buffer_double | signal_mask, cmap='gray')
+#axes[1].set_title(f'BG mask (4x: {num_pixels_double} pixels)')
+#
+#plt.show()
+#
+#true_pixels_count, continuous_buffer_exact.shape, continuous_buffer_double.shape
+
+compute_signal_mask = pump_probe.compute_signal_mask
+calculate_signal_background_from_histograms = histogram_analysis.calculate_signal_background_from_histograms
+
+best_signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histograms,
+                         threshold_lower=0.05, threshold_upper=.3, num_threshold_points=15)
+
+signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
 
 cdw_data = pump_probe.generate_plot_data(cdw_output, signal_mask, bin_boundaries,
                               hist_start_bin, roi_coordinates, background_mask_multiple)
-#cdw_output = generate_intensity_data(auto_signal_mask, xvar_unique, arg, I, xvar, I0_a, I0_thres, ims_crop, rr, background_mask_multiple)
 pump_probe.plot_data(cdw_data)
