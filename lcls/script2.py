@@ -114,9 +114,9 @@ parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate
 parser.add_argument("--delay_option", type=int, default=2, choices=[1, 2],
     help="Option for calculating xvar: 1 for lasDelay, 2 for lasDelay2 with FLTPOS_PS (default)")
 parser.add_argument("--subtract_background", action="store_true", help="Subtract background from signal (default: True)")
+parser.add_argument("--subtract_background", action="store_true", help="Subtract background from signal (default: True)")
 parser.add_argument("--laser_delay_source", type=int, default=1, choices=[1, 2],
     help="Source of laser delay value: 1 for lasDelay (default), 2 for lasDelay2")
-parser.add_argument("--no_subtract_background", action="store_true", help="Do not subtract background from signal")
 # TODO TimeTool = [0, 0.005]
 
 args = parser.parse_args()
@@ -143,8 +143,7 @@ estimate_center_flag = args.estimate_center
 Time_bin = args.Time_bin
 delay_option = args.delay_option
 las_delay_source = args.laser_delay_source
-subtract_background = args.subtract_background
-subtract_background = not args.no_subtract_background
+subtract_background = not args.no_subtract_background if args.subtract_background is None else args.subtract_background
 
 TimeTool = args.TimeTool
 Energy_Width = args.Energy_Width
@@ -235,7 +234,7 @@ best_signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_bo
 signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
 
 cdw_data = pump_probe.generate_plot_data(cdw_output, signal_mask, bin_boundaries,
-                              hist_start_bin, roi_coordinates, background_mask_multiple)
+                              hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=subtract_background)
 pump_probe.plot_data(cdw_data)
 
 import matplotlib.pyplot as plt
