@@ -45,6 +45,27 @@ def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
 
 
 def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_mask):
+    print("Unique binned delays:", np.unique(binned_delays))
+    unique_binned_delays = np.unique(binned_delays)
+    stacks = {}
+
+    mask = np.zeros_like(binned_delays, dtype=bool)
+    for d in unique_binned_delays:
+        mask |= (binned_delays == d)
+
+    filtered_binned_delays = binned_delays[mask]
+    filtered_imgs = img_array[mask]
+
+    for d in unique_binned_delays:
+        specific_mask = (filtered_binned_delays == d)
+        stack = filtered_imgs[specific_mask]
+
+        if stack.shape[0] >= min_count:
+            stacks[d] = stack #* ROI_mask[None, ...]
+        else:
+            print(f"Dropped delay {d} due to count {stack.shape[0]} being less than minimum required {min_count}.")
+
+    return stacks
     unique_binned_delays = np.unique(binned_delays)
     stacks = {}
 
