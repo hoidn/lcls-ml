@@ -76,6 +76,8 @@ def EnergyFilter(rr, Energy_Filter, ROI, filter_third_harmonic=False):
     imgs_temp = rr.jungfrau1M.ROI_0_area[:10000,ROI[0]:ROI[1],ROI[2]:ROI[3]].ravel()
 
     imgs_cleaned = rr.jungfrau1M.ROI_0_area[:,ROI[0]:ROI[1],ROI[2]:ROI[3]]
+    # The filter_third_harmonic parameter controls whether energies above the third harmonic are filtered out.
+    # By default, all energies above the third harmonic are passed through.
     if filter_third_harmonic:
         imgs_cleaned[(imgs_cleaned<thresh_1)
                      |((imgs_cleaned>thresh_2)&(imgs_cleaned<thresh_3))
