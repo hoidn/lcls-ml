@@ -9,7 +9,7 @@ import standard_workflow as helpers
 import histogram_analysis
 from pump_probe import optimize_signal_mask, CDW_PP
 import pump_probe
-from maskutils import erode_to_target
+from maskutils import erode_to_target, set_nearest_neighbors
 
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     """
@@ -174,6 +174,9 @@ from scipy.ndimage import label
 data = imgs_thresh#[:7000, ...]#load_data(filepath)
 histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 
+if interpolate_gaps:
+    set_nearest_neighbors(histograms, cdw_output['full_mask'], roi_crop)
+
 threshold = .1
 # Run the analysis
 res = run_histogram_analysis(
@@ -217,8 +220,57 @@ calculate_signal_background_from_histograms = histogram_analysis.calculate_signa
 best_signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histograms,
                          threshold_lower=0.05, threshold_upper=.3, num_threshold_points=15)
 
+# TODO check if signal mask is valid
 signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
 
 cdw_data = pump_probe.generate_plot_data(cdw_output, signal_mask, bin_boundaries,
                               hist_start_bin, roi_coordinates, background_mask_multiple)
 pump_probe.plot_data(cdw_data)
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import numpy as np
+
+# TODO cleanup the code below. move the function to the top of the module, where other functions are
+# background_mask = histogram_analysis.create_background_mask(auto_signal_mask, background_mask_multiple, 1.,
+#                                                             separator_thickness=40)
+
+def plot_heatmap_with_roi(ax, data, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
+    # Integrate data over the 0th axis
+    integrated_data = data.mean(axis=0)
+
+    # Create the heatmap
+    im = ax.imshow(integrated_data, cmap='hot', interpolation='nearest',
+                  vmin = np.percentile(integrated_data.ravel(), 10))
+
+    # Create a Rectangle patch
+    rect = patches.Rectangle((roi_y_start, roi_x_start), roi_y_end - roi_y_start, roi_x_end - roi_x_start,
+                             linewidth=5, edgecolor='blue', facecolor='none')
+
+    # Add the patch to the Axes
+    ax.add_patch(rect)
+#     plt.colorbar(im, ax = ax)
+
+# Create a multi-panel plot in a 2x2 layout
+fig, axs = plt.subplots(2, 2, figsize=(10, 10))  # Adjusted for 2x2 layout
+
+# Plot 1: EMD Values
+axs[0, 0].imshow(res['emd_values'])
+axs[0, 0].set_title('EMD Values')
+
+# Plot 2: 1 - Log(P Values)
+im = axs[0, 1].imshow(1 - np.log(res['p_values']), cmap='plasma')
+plt.colorbar(im, ax=axs[0, 1])
+axs[0, 1].set_title('1 - Log(P Values)')
+
+# Plot 3: Heatmap with ROI
+plot_heatmap_with_roi(axs[1, 0], histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end)
+axs[1, 0].set_title('Heatmap with background ROI')
+
+# Plot 4: Signal Mask
+axs[1, 1].imshow(signal_mask)
+axs[1, 1].set_title('Signal mask')
+
+plt.tight_layout()
+plt.show()
+
