@@ -65,7 +65,7 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
 
     return stacks
 
-def EnergyFilter(rr,Energy_Filter,ROI):
+def EnergyFilter(rr, Energy_Filter, ROI, filter_third_harmonic=False):
     # Thresholding the detector images
     E0,dE = Energy_Filter[0],Energy_Filter[1]
     thresh_1,thresh_2 = E0-dE,E0+dE
@@ -75,10 +75,15 @@ def EnergyFilter(rr,Energy_Filter,ROI):
     imgs_temp = rr.jungfrau1M.ROI_0_area[:10000,ROI[0]:ROI[1],ROI[2]:ROI[3]].ravel()
 
     imgs_cleaned = rr.jungfrau1M.ROI_0_area[:,ROI[0]:ROI[1],ROI[2]:ROI[3]]
-    imgs_cleaned[(imgs_cleaned<thresh_1)
-                 |((imgs_cleaned>thresh_2)&(imgs_cleaned<thresh_3))
-                 |((imgs_cleaned>thresh_4)&(imgs_cleaned<thresh_5))
-                 |(imgs_cleaned>thresh_6)] = 0
+    if filter_third_harmonic:
+        imgs_cleaned[(imgs_cleaned<thresh_1)
+                     |((imgs_cleaned>thresh_2)&(imgs_cleaned<thresh_3))
+                     |((imgs_cleaned>thresh_4)&(imgs_cleaned<thresh_5))
+                     |(imgs_cleaned>thresh_6)] = 0
+    else:
+        imgs_cleaned[(imgs_cleaned<thresh_1)
+                     |((imgs_cleaned>thresh_2)&(imgs_cleaned<thresh_3))
+                     |((imgs_cleaned>thresh_4)&(imgs_cleaned<thresh_5))] = 0
 
     fig, axs = plt.subplots(1,2,figsize=[15,7])
     axs[0].set_title('Before Energy Thresholding')
