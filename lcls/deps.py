@@ -68,8 +68,9 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
     binned_delays = cdw_pp_output['binned_delays']
     arg_laser_on = cdw_pp_output['arg_laser_on']
     arg_laser_off = cdw_pp_output['arg_laser_off']
-    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
-    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
+    background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=subtract_background)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=subtract_background)
     background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
     delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
     delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
