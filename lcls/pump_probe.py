@@ -99,13 +99,13 @@ def EnergyFilter(rr, Energy_Filter, ROI, filter_third_harmonic=False):
 
     fig, axs = plt.subplots(1,2,figsize=[15,7])
     axs[0].set_title('Before Energy Thresholding')
-    axs[0].hist(imgs_temp, bins=np.arange(-5,30,0.1))
+    axs[0].hist(imgs_temp, bins=np.arange(-5,40,0.1))
     axs[0].set_xlabel('Pixel intensity (keV)')
     axs[0].set_ylabel('Counts')
     axs[0].set_yscale('log')
     axs[0].minorticks_on()
     axs[0].grid(True,'both')
-    axs[0].set_xlim([-5,30])
+    axs[0].set_xlim([-5,40])
     axs[0].axvline(thresh_1, color='green')
     axs[0].axvline(thresh_2, color='green')
     axs[0].axvline(thresh_3, color='green')
@@ -113,13 +113,13 @@ def EnergyFilter(rr, Energy_Filter, ROI, filter_third_harmonic=False):
     axs[0].axvline(thresh_5, color='green')
     axs[0].axvline(thresh_6, color='green')
     axs[1].set_title('After Energy Thresholding')
-    axs[1].hist(imgs_cleaned[:10000].ravel(), bins=np.arange(-5,30,0.1))
+    axs[1].hist(imgs_cleaned[:10000].ravel(), bins=np.arange(-5,40,0.1))
     axs[1].set_xlabel('Pixel intensity (keV)')
     axs[1].set_ylabel('Counts')
     axs[1].set_yscale('log')
     axs[1].minorticks_on()
     axs[1].grid(True,'both')
-    axs[1].set_xlim([-5,30])
+    axs[1].set_xlim([-5,40])
     plt.show()
     return imgs_cleaned
 
@@ -190,7 +190,12 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries,
             norm_signal = signal / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
 
         std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+
+        if subtract_background:
+            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        else:
+            norm_signal = (signal ) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        #norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
         std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
 
         delays.append(delay)
