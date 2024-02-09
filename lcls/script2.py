@@ -112,6 +112,8 @@ parser.add_argument("--estimate_center", action="store_true", help="Estimate the
 parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate gaps in the data")
 parser.add_argument("--delay_option", type=int, default=2, choices=[1, 2],
     help="Option for calculating xvar: 1 for lasDelay, 2 for lasDelay2 with FLTPOS_PS (default)")
+parser.add_argument("--laser_delay_source", type=int, default=1, choices=[1, 2],
+    help="Source of laser delay value: 1 for lasDelay (default), 2 for lasDelay2")
 # TODO TimeTool = [0, 0.005]
 
 args = parser.parse_args()
@@ -136,6 +138,7 @@ interpolate_gaps = args.interpolate_gaps
 estimate_center_flag = args.estimate_center
 Time_bin = args.Time_bin
 delay_option = args.delay_option
+las_delay_source = args.laser_delay_source
 
 TimeTool = args.TimeTool
 Energy_Width = args.Energy_Width
@@ -147,7 +150,7 @@ hist_start_bin = 1
 
 cdw_output = CDW_PP(run, exp, h5dir, roi_crop,
                     Energy_Filter, I0_thres,
-                    IPM_pos_Filter, Time_bin, TimeTool)
+                    IPM_pos_Filter, Time_bin, TimeTool, las_delay_source)
 
 from typing import List, Dict
 

@@ -188,7 +188,7 @@ def EnergyFilter(rr, Energy_Filter, ROI, filter_third_harmonic=False):
     plt.show()
     return imgs_cleaned
 
-def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool,
+def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool, las_delay_source,
           min_count = 200):
     rr = SMD_Loader(Run_Number, exp, h5dir)  # Small Data Import
 
@@ -210,7 +210,8 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
 
     # Time Tool Logic
     tt_arg = TimeTool[0]
-    delay = np.array(rr.enc.lasDelay) + np.array(rr.tt.FLTPOS_PS) * tt_arg
+    delay_source = rr.enc.lasDelay if las_delay_source == 1 else rr.enc.lasDelay2
+    delay = np.array(delay_source) + np.array(rr.tt.FLTPOS_PS) * tt_arg
     arg_delay_nan = np.isnan(delay)
 
     # Energy Filtering
