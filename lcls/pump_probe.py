@@ -407,7 +407,7 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
 # Note: The functions compute_signal_mask and calculate_signal_background_from_histograms need to be predefined as per the user's environment.
 
 
-def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
+def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=True):
     # Extracting data from CDW_PP output
     stacks_on = cdw_pp_output['stacks_on']
     stacks_off = cdw_pp_output['stacks_off']
@@ -421,6 +421,8 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
             bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
     delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask,
             bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
 
     # Calculating relative p-values
     relative_p_values = []
