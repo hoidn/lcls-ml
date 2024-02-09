@@ -103,6 +103,7 @@ parser.add_argument("--xc_range", type=float, default=0.2, help="Range for xc fi
 parser.add_argument("--yc_range", type=float, default=0.5, help="Range for yc filtering")
 parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum peak pixel count")
 parser.add_argument("--Time_bin", type=float, default=2.0, help="Time bin width in picoseconds")
+parser.add_argument("--no_subtract_background", action="store_true", help="Do not subtract background from signal")
 parser.add_argument("--TimeTool", nargs=2, type=float, default=[0, 0.005], help="TimeTool correction factors")
 parser.add_argument("--Energy_Width", type=float, default=5, help="Energy width in eV")
 parser.add_argument("--threshold_lower", type=float, default=0.0, help="Lower threshold for signal mask optimization")
@@ -136,6 +137,7 @@ yc = args.yc
 xc_range = args.xc_range
 yc_range = args.yc_range
 min_peak_pixcount = args.min_peak_pixcount
+subtract_background = not args.no_subtract_background
 interpolate_gaps = args.interpolate_gaps
 estimate_center_flag = args.estimate_center
 Time_bin = args.Time_bin
