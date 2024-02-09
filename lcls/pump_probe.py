@@ -49,52 +49,6 @@ def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
 
     print(f"Generated {len(np.unique(binned_delays))} unique binned delays.")
     return binned_delays
-    print("Starting delay binning...")
-    # Adjust the bin width to ensure it's a float
-    Time_bin = float(Time_bin)
-
-    # Determine the minimum and maximum values from the non-NaN delays
-    delay_min = np.floor(delay_raw[arg_delay_nan == False].min())
-    delay_max = np.ceil(delay_raw[arg_delay_nan == False].max())
-    print(f"Delay min: {delay_min}, Delay max: {delay_max}")
-
-    # Create bins that are shifted by half the bin width
-    half_bin = Time_bin / 2
-    bins = np.arange(delay_min - half_bin, delay_max + Time_bin, Time_bin)
-    print(f"Generated {len(bins)} bins with bin width {Time_bin}.")
-
-    # Assign each delay to the nearest bin
-    binned_indices = np.digitize(delay, bins, right=True)
-
-    # Convert bin indices to delay values
-    binned_delays = bins[binned_indices - 1] + half_bin
-
-    # Ensure that the binned delays are within the min and max range
-    binned_delays = np.clip(binned_delays, delay_min, delay_max)
-
-    print(f"Generated {len(np.unique(binned_delays))} unique binned delays.")
-    return binned_delays
-    # Adjust the bin width to ensure it's a float
-    Time_bin = float(Time_bin)
-
-    # Determine the minimum and maximum values from the non-NaN delays
-    delay_min = np.floor(delay_raw[arg_delay_nan == False].min())
-    delay_max = np.ceil(delay_raw[arg_delay_nan == False].max())
-
-    # Create bins that are shifted by half the bin width
-    half_bin = Time_bin / 2
-    bins = np.arange(delay_min - half_bin, delay_max + Time_bin, Time_bin)
-
-    # Assign each delay to the nearest bin
-    binned_indices = np.digitize(delay, bins, right=True)
-
-    # Convert bin indices to delay values
-    binned_delays = bins[binned_indices - 1] + half_bin
-
-    # Ensure that the binned delays are within the min and max range
-    binned_delays = np.clip(binned_delays, delay_min, delay_max)
-
-    return binned_delays
 
 
 def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_mask):
@@ -117,25 +71,6 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
             stacks[d] = stack #* ROI_mask[None, ...]
         else:
             print(f"Dropped delay {d} due to count {stack.shape[0]} being less than minimum required {min_count}.")
-
-    return stacks
-    unique_binned_delays = np.unique(binned_delays)
-    stacks = {}
-
-    mask = np.zeros_like(binned_delays, dtype=bool)
-    for d in unique_binned_delays:
-        mask |= (binned_delays == d)
-
-    filtered_binned_delays = binned_delays[mask]
-    filtered_imgs = img_array[mask]
-
-    for d in unique_binned_delays:
-        specific_mask = (filtered_binned_delays == d)
-        stack = filtered_imgs[specific_mask]
-
-        if stack.shape[0] >= min_count:
-            # TODO
-            stacks[d] = stack #* ROI_mask[None, ...]
 
     return stacks
 
@@ -207,6 +142,7 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     I0_x_mean, I0_y_mean = I0_x[arg].mean(), I0_y[arg].mean()
     arg_I0_x = (I0_x < (I0_x_mean + IPM_pos_Filter[0])) & (I0_x > (I0_x_mean - IPM_pos_Filter[0]))
     arg_I0_y = (I0_y < (I0_y_mean + IPM_pos_Filter[1])) & (I0_y > (I0_y_mean - IPM_pos_Filter[1]))
+    
 
     # Time Tool Logic
     tt_arg = TimeTool[0]
@@ -218,10 +154,10 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     imgs = EnergyFilter(rr, Energy_Filter, ROI)
 
     # Laser On/Off Logic
-    arg_laser_on = (np.array(rr.evr.code_90) == 1.)
-    arg_laser_off = (np.array(rr.evr.code_91) == 1.)
+    arg_laser_on = (np.array(rr.evr.code_90) == 1.) & (( arg_I0_x & arg_I0_y ) & arg_I0)
+    arg_laser_off = (np.array(rr.evr.code_91) == 1.) & (( arg_I0_x & arg_I0_y ) & arg_I0)
 
-    binned_delays = delay_bin(delay, np.array(rr.enc.lasDelay), Time_bin, arg_delay_nan)
+    binned_delays = delay_bin(delay, np.array(delay_source), Time_bin, arg_delay_nan)
 
     stacks_on = extract_stacks_by_delay(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count, ROI_mask)
     stacks_off = extract_stacks_by_delay(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count, ROI_mask)
@@ -277,19 +213,6 @@ def calculate_p_value(signal_on, signal_off, std_dev_on, std_dev_off):
     Returns:
     float: Calculated p-value.
     """
-#     # Calculating relative p-values
-#     relative_p_values = []
-#     for time_delay in sorted(stacks_on.keys()):
-#         if time_delay in stacks_off:
-#             size = min(stacks_on[time_delay].shape[0], stacks_off[time_delay].shape[0])
-#             histo_on = calculate_histograms(stacks_on[time_delay][:size, ...], bin_boundaries, hist_start_bin)
-#             histo_off = calculate_histograms(stacks_off[time_delay][:size, ...], bin_boundaries, hist_start_bin)
-#             relative_histogram = np.abs(histo_on - histo_off)
-#             p_value_data = compute_aggregate_pvals_with_custom_background(
-#                 bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple,
-#                 signal_mask=signal_mask, histograms=relative_histogram, num_permutations=10000
-#             )
-#             relative_p_values.append(p_value_data['aggregate_p_value'])
     from scipy.stats import norm
     delta_signal = abs(signal_on - signal_off)
     combined_std_dev = np.sqrt(std_dev_on**2 + std_dev_off**2)
