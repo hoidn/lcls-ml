@@ -65,9 +65,49 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
 
     return stacks
 
+def EnergyFilter(rr,Energy_Filter,ROI):
+    # Thresholding the detector images
+    E0,dE = Energy_Filter[0],Energy_Filter[1]
+    thresh_1,thresh_2 = E0-dE,E0+dE
+    thresh_3,thresh_4 = 2*E0-dE,2*E0+dE
+    thresh_5,thresh_6 = 3*E0-dE,3*E0+dE
+
+    imgs_temp = rr.jungfrau1M.ROI_0_area[:10000,ROI[0]:ROI[1],ROI[2]:ROI[3]].ravel()
+
+    imgs_cleaned = rr.jungfrau1M.ROI_0_area[:,ROI[0]:ROI[1],ROI[2]:ROI[3]]
+    imgs_cleaned[(imgs_cleaned<thresh_1)
+                 |((imgs_cleaned>thresh_2)&(imgs_cleaned<thresh_3))
+                 |((imgs_cleaned>thresh_4)&(imgs_cleaned<thresh_5))
+                 |(imgs_cleaned>thresh_6)] = 0
+
+    fig, axs = plt.subplots(1,2,figsize=[15,7])
+    axs[0].set_title('Before Energy Thresholding')
+    axs[0].hist(imgs_temp, bins=np.arange(-5,30,0.1))
+    axs[0].set_xlabel('Pixel intensity (keV)')
+    axs[0].set_ylabel('Counts')
+    axs[0].set_yscale('log')
+    axs[0].minorticks_on()
+    axs[0].grid(True,'both')
+    axs[0].set_xlim([-5,30])
+    axs[0].axvline(thresh_1, color='green')
+    axs[0].axvline(thresh_2, color='green')
+    axs[0].axvline(thresh_3, color='green')
+    axs[0].axvline(thresh_4, color='green')
+    axs[0].axvline(thresh_5, color='green')
+    axs[0].axvline(thresh_6, color='green')
+    axs[1].set_title('After Energy Thresholding')
+    axs[1].hist(imgs_cleaned[:10000].ravel(), bins=np.arange(-5,30,0.1))
+    axs[1].set_xlabel('Pixel intensity (keV)')
+    axs[1].set_ylabel('Counts')
+    axs[1].set_yscale('log')
+    axs[1].minorticks_on()
+    axs[1].grid(True,'both')
+    axs[1].set_xlim([-5,30])
+    plt.show()
+    return imgs_cleaned
+
 def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool,
           min_count = 200):
-    from ybco import EnergyFilter
     rr = SMD_Loader(Run_Number, exp, h5dir)  # Small Data Import
 
     # Mask for bad pixels
@@ -109,7 +149,9 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     'I0': I0,
     'binned_delays': binned_delays,
     'arg_laser_on': arg_laser_on,
-    'arg_laser_off': arg_laser_off
+    'arg_laser_off': arg_laser_off,
+    'full_mask': full_mask,
+    'roi_mask': ROI_mask
     }
     #return stacks_on, stacks_off, I0, binned_delays, arg_laser_on, arg_laser_off
 
