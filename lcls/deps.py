@@ -61,7 +61,7 @@ def calculate_p_value(signal_on, signal_off, std_dev_on, std_dev_off):
     p_value = 2 * (1 - norm.cdf(z_score))
     return p_value
 
-def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=True, thickness=10):
+def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=True, thickness=10, separator_thickness=5):
     stacks_on = cdw_pp_output['stacks_on']
     stacks_off = cdw_pp_output['stacks_off']
     I0 = cdw_pp_output['I0']
@@ -69,11 +69,8 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
     arg_laser_on = cdw_pp_output['arg_laser_on']
     arg_laser_off = cdw_pp_output['arg_laser_off']
     background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
-    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, subtract_background=subtract_background)
-    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, subtract_background=subtract_background)
-    background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
-    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
-    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=subtract_background)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=subtract_background)
     relative_p_values = []
     for delay in sorted(set(delays_on) & set(delays_off)):
         signal_on = norm_signal_on[delays_on.index(delay)]
@@ -103,7 +100,7 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         'relative_p_values': relative_p_values
     }
 
-def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, background_mask, bin_boundaries, hist_start_bin,
+def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, background_mask,
                                      **kwargs):
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     return calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, **kwargs)
@@ -138,8 +135,7 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
 #
 #    histograms += 1e-9
 #    return histograms[hist_start_bin:, :, :]
-calculate_histograms = jit(nopython=True)(calculate_histograms)
-calculate_histograms = memoize_subsampled(calculate_histograms)
+calculate_histograms = memoize_subsampled(jit(nopython=True)(calculate_histograms))
 
 
 
@@ -148,16 +144,14 @@ def calculate_total_counts(integrated_counts: np.ndarray, signal_mask: np.ndarra
     S = np.sum(counts_in_signal)
     return S
 
-def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
+def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarray, buffer: np.ndarray) -> Tuple[float, float]:
     # TODO unequal signal and background
     N = np.sum(signal_mask)
     M = calculate_total_counts(integrated_counts, buffer)
     if M is None:
         return None
     S = calculate_total_counts(integrated_counts, signal_mask)
-    return S, M * N / np.sum(buffer)
-    result = S - N * M
-    return result
+    return S - (M * N / np.sum(buffer)), M * N / np.sum(buffer)
 
 def calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, Emin = 8, Emax = 10):
     energies = bin_boundaries[hist_start_bin + 1:]
@@ -174,10 +168,10 @@ def calculate_signal_background_from_histograms(local_histograms, signal_mask, b
 def create_background_mask(signal_mask, background_mask_multiple, thickness, separator_thickness = 5):
     num_pixels_signal_mask = np.sum(signal_mask)
     num_pixels_background_mask = int(num_pixels_signal_mask * background_mask_multiple)
-    background_mask = create_continuous_buffer(signal_mask,
+    buffer = create_continuous_buffer(signal_mask,
                 initial_thickness=thickness, num_pixels=num_pixels_background_mask,
-                                               separator_thickness = separator_thickness)
-    return background_mask
+                                               separator_thickness=separator_thickness)
+    return buffer
 
 
 def filter_and_sum_histograms(histograms, energies, Emin, Emax):
@@ -221,7 +215,7 @@ def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 1
     thickness = 0
     while num_pixels is not None and current_num_pixels < num_pixels:
         thickness += 1
-        buffer = binary_dilation(dilated_signal, iterations=thickness) & (~dilated_signal)
+        buffer = binary_dilation(dilated_signal, iterations=thickness) & (~signal_mask)
         current_num_pixels = np.sum(buffer)
 
     return buffer
