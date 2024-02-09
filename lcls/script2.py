@@ -105,6 +105,8 @@ parser.add_argument("--min_peak_pixcount", type=int, default=1000, help="Minimum
 parser.add_argument("--Time_bin", type=float, default=2.0, help="Time bin width in picoseconds")
 parser.add_argument("--TimeTool", nargs=2, type=float, default=[0, 0.005], help="TimeTool correction factors")
 parser.add_argument("--Energy_Width", type=float, default=5, help="Energy width in eV")
+parser.add_argument("--threshold_lower", type=float, default=0.0, help="Lower threshold for signal mask optimization")
+parser.add_argument("--threshold_upper", type=float, default=0.3, help="Upper threshold for signal mask optimization")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
 parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate gaps in the data")
@@ -218,7 +220,7 @@ compute_signal_mask = pump_probe.compute_signal_mask
 calculate_signal_background_from_histograms = histogram_analysis.calculate_signal_background_from_histograms
 
 best_signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histograms,
-                         threshold_lower=0.05, threshold_upper=.3, num_threshold_points=15)
+                         threshold_lower=args.threshold_lower, threshold_upper=args.threshold_upper, num_threshold_points=15)
 
 # TODO check if signal mask is valid
 signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
