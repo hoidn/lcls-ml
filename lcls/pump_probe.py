@@ -65,6 +65,7 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
 
     return stacks
 
+    # TODO: Implement a command line parameter to control the EnergyFilter behavior between filtering all energies above the third harmonic by default and selecting the old behavior.
 def EnergyFilter(rr, Energy_Filter, ROI, filter_third_harmonic=False):
     # Thresholding the detector images
     E0,dE = Energy_Filter[0],Energy_Filter[1]
