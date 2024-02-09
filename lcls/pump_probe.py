@@ -154,8 +154,8 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     imgs = EnergyFilter(rr, Energy_Filter, ROI)
 
     # Laser On/Off Logic
-    arg_laser_on = (np.array(rr.evr.code_90) == 1.) & (( arg_I0_x & arg_I0_y ) & arg_I0)
-    arg_laser_off = (np.array(rr.evr.code_91) == 1.) & (( arg_I0_x & arg_I0_y ) & arg_I0)
+    arg_laser_on = (np.array(rr.evr.code_90) == 1.) #& (( arg_I0_x & arg_I0_y ) & arg_I0)
+    arg_laser_off = (np.array(rr.evr.code_91) == 1.)# & (( arg_I0_x & arg_I0_y ) & arg_I0)
 
     binned_delays = delay_bin(delay, np.array(delay_source), Time_bin, arg_delay_nan)
 
