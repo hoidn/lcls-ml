@@ -21,6 +21,31 @@ def SMD_Loader(Run_Number, exp, h5dir):
     return rr
 
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
+    print("Starting delay binning...")
+    # Adjust the bin width to ensure it's a float
+    Time_bin = float(Time_bin)
+
+    # Determine the minimum and maximum values from the non-NaN delays
+    delay_min = np.floor(delay_raw[arg_delay_nan == False].min())
+    delay_max = np.ceil(delay_raw[arg_delay_nan == False].max())
+    print(f"Delay min: {delay_min}, Delay max: {delay_max}")
+
+    # Create bins that are shifted by half the bin width
+    half_bin = Time_bin / 2
+    bins = np.arange(delay_min - half_bin, delay_max + Time_bin, Time_bin)
+    print(f"Generated {len(bins)} bins with bin width {Time_bin}.")
+
+    # Assign each delay to the nearest bin
+    binned_indices = np.digitize(delay, bins, right=True)
+
+    # Convert bin indices to delay values
+    binned_delays = bins[binned_indices - 1] + half_bin
+
+    # Ensure that the binned delays are within the min and max range
+    binned_delays = np.clip(binned_delays, delay_min, delay_max)
+
+    print(f"Generated {len(np.unique(binned_delays))} unique binned delays.")
+    return binned_delays
     # Adjust the bin width to ensure it's a float
     Time_bin = float(Time_bin)
 
