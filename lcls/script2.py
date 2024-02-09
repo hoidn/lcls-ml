@@ -108,6 +108,7 @@ parser.add_argument("--TimeTool", nargs=2, type=float, default=[0, 0.005], help=
 parser.add_argument("--Energy_Width", type=float, default=5, help="Energy width in eV")
 parser.add_argument("--threshold_lower", type=float, default=0.0, help="Lower threshold for signal mask optimization")
 parser.add_argument("--threshold_upper", type=float, default=0.3, help="Upper threshold for signal mask optimization")
+parser.add_argument("--min_count", type=int, default=100, help="Minimum count for CDW_PP")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
 parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate gaps in the data")
@@ -142,6 +143,8 @@ Time_bin = args.Time_bin
 delay_option = args.delay_option
 las_delay_source = args.laser_delay_source
 
+min_count = args.min_count
+
 TimeTool = args.TimeTool
 Energy_Width = args.Energy_Width
 Energy_Filter = [E0, Energy_Width]
@@ -150,9 +153,7 @@ IPM_pos_Filter = [xc_range, yc_range]
 bin_boundaries = np.arange(5, 30, .2)
 hist_start_bin = 1
 
-cdw_output = CDW_PP(run, exp, h5dir, roi_crop,
-                    Energy_Filter, I0_thres,
-                    IPM_pos_Filter, Time_bin, TimeTool, las_delay_source)
+cdw_output = CDW_PP(run, exp, h5dir, roi_crop, Energy_Filter, I0_thres, IPM_pos_Filter, Time_bin, TimeTool, las_delay_source, min_count=min_count)
 
 from typing import List, Dict
 
