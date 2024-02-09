@@ -69,11 +69,11 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
     arg_laser_on = cdw_pp_output['arg_laser_on']
     arg_laser_off = cdw_pp_output['arg_laser_off']
     background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
-    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=subtract_background)
-    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=subtract_background)
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, subtract_background=subtract_background)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, subtract_background=subtract_background)
     background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
-    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
-    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, bin_boundaries, hist_start_bin, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
     relative_p_values = []
     for delay in sorted(set(delays_on) & set(delays_off)):
         signal_on = norm_signal_on[delays_on.index(delay)]
@@ -103,10 +103,10 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         'relative_p_values': relative_p_values
     }
 
-def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, background_mask,
+def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, background_mask, bin_boundaries, hist_start_bin,
                                      **kwargs):
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
-    return calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, **kwargs)
+    return calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, **kwargs)
 
 from numba import jit
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
@@ -159,7 +159,7 @@ def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarra
     result = S - N * M
     return result
 
-def calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, Emin = 8, Emax = 10):
+def calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, Emin = 8, Emax = 10):
     energies = bin_boundaries[hist_start_bin + 1:]
     integrated_counts = filter_and_sum_histograms(local_histograms, energies, Emin, Emax)
     signal, bg = background_subtraction(integrated_counts, signal_mask, background_mask)
