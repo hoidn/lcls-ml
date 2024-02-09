@@ -115,6 +115,7 @@ parser.add_argument("--delay_option", type=int, default=2, choices=[1, 2],
 parser.add_argument("--subtract_background", action="store_true", help="Subtract background from signal (default: True)")
 parser.add_argument("--laser_delay_source", type=int, default=1, choices=[1, 2],
     help="Source of laser delay value: 1 for lasDelay (default), 2 for lasDelay2")
+parser.add_argument("--no_subtract_background", action="store_true", help="Do not subtract background from signal")
 # TODO TimeTool = [0, 0.005]
 
 args = parser.parse_args()
@@ -141,6 +142,7 @@ Time_bin = args.Time_bin
 delay_option = args.delay_option
 las_delay_source = args.laser_delay_source
 subtract_background = args.subtract_background
+subtract_background = not args.no_subtract_background
 
 TimeTool = args.TimeTool
 Energy_Width = args.Energy_Width
