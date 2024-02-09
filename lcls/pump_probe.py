@@ -175,22 +175,21 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     #return stacks_on, stacks_off, I0, binned_delays, arg_laser_on, arg_laser_off
 
 def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin,
-                  binned_delays, background_mask_multiple= 1,
-                    sub_bg = True):
+                  binned_delays, background_mask_multiple=1, subtract_background=True):
     delays, norm_signals, std_devs = [], [], []
 
     for delay, stack in stacks.items():
         # Filter I0 values for the specific delay and laser condition
         I0_filtered = I0[arg_laser_condition & (binned_delays == delay)]
 
-        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin,
-                                                                background_mask_multiple= background_mask_multiple)
-        # TODO does this work? mean vs. sum
-#        if sub_bg:
-#            norm_signal = (signal - bg) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-#        else:
-#            norm_signal = (signal) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-#        std_dev = np.sqrt(total_var) / np.sum(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin, background_mask_multiple=background_mask_multiple)
+
+        if subtract_background:
+            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        else:
+            norm_signal = signal / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+
+        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
         norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
         std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
 
