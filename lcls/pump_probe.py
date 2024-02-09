@@ -374,17 +374,21 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
 
         for _ in range(num_runs):
             signal_mask = compute_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, threshold, histograms=histograms)
+            print(f"Threshold: {threshold}, Signal mask mean: {signal_mask.mean()}, Signal mask sum: {signal_mask.sum()}")
             if signal_mask.mean() > max_signal_fraction or signal_mask.sum() == 0:
+                print("Skipping due to signal mask mean > max_signal_fraction or signal mask sum == 0")
                 continue
             signal, bg, _ = hist.calculate_signal_background_from_histograms(histograms, signal_mask, bin_boundaries, hist_start_bin)
 
             if bg == 0:
+                print("Skipping due to background == 0")
                 continue
 
             ratio = (signal - bg) / bg
             ratios.append(ratio)
 
         if not ratios:
+            print("No ratios calculated, continuing to next threshold.")
             continue
 
         avg_ratio = np.mean(ratios)
