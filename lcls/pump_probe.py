@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pvalues
 compute_aggregate_pvals_with_custom_background = pvalues.compute_aggregate_pvals_with_custom_background
 
-from histogram_analysis import calculate_histograms, calculate_signal_background_from_histograms
+import histogram_analysis as hist
 #from histogram_analysis import calculate_signal_background_noI0
 calculate_signal_background_noI0 = hist.calculate_signal_background_noI0
 
@@ -174,15 +174,16 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     }
     #return stacks_on, stacks_off, I0, binned_delays, arg_laser_on, arg_laser_off
 
-def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin, background_mask,
+def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin,
                   binned_delays, background_mask_multiple=1, subtract_background=True):
+    background_mask = create_background_mask(signal_mask, background_mask_multiple, 10)
     delays, norm_signals, std_devs = [], [], []
 
     for delay, stack in stacks.items():
         # Filter I0 values for the specific delay and laser condition
         I0_filtered = I0[arg_laser_condition & (binned_delays == delay)]
 
-        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin, background_mask, background_mask_multiple=background_mask_multiple)
+        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin, background_mask)
 
         if subtract_background:
             norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
@@ -258,8 +259,7 @@ def compute_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, thresho
     :return: The computed signal mask.
     """
     roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
-    roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
-    res = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries, hist_start_bin=hist_start_bin, roi_x_start=roi_x_start, roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
+    res = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries, hist_start_bin=hist_start_bin,
                                  roi_x_start=roi_x_start, roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
                                  data=data, threshold=threshold)
 
@@ -359,6 +359,7 @@ def optimize_figure_of_merit(cdw_output, bin_boundaries, hist_start_bin, roi_coo
         'best_figure_of_merit': best_figure_of_merit
     }
 
+from deps import create_background_mask
 def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histograms,
                          threshold_lower=0., threshold_upper=.5,
                          num_threshold_points=10, num_runs=5,
@@ -367,8 +368,7 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
     Performs grid search optimization for the 'signal mask' array, focusing only on the threshold parameter.
     """
     threshold_range = np.linspace(threshold_lower, threshold_upper, num_threshold_points)
-    signal_mask = None
-    best_signal_mask = signal_mask
+    best_signal_mask = None
     best_threshold = None
     best_avg_ratio = float('-inf')
     grid_search_results = []
@@ -384,7 +384,9 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
             elif signal_mask.mean() > max_signal_fraction:
                 print(f"Skipping due to signal mask mean > max_signal_fraction ({max_signal_fraction})")
                 continue
-            signal, bg, _ = calculate_signal_background_from_histograms(histograms, signal_mask, bin_boundaries, hist_start_bin, background_mask)
+
+            background_mask = create_background_mask(signal_mask, 1, 10)
+            signal, bg, _ = hist.calculate_signal_background_from_histograms(histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin)
 
             if bg == 0:
                 print("Skipping due to background == 0")
@@ -415,6 +417,7 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
 
 
 def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=True):
+    subtract_background = False
     # Extracting data from CDW_PP output
     stacks_on = cdw_pp_output['stacks_on']
     stacks_off = cdw_pp_output['stacks_off']

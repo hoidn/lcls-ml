@@ -106,8 +106,8 @@ parser.add_argument("--Time_bin", type=float, default=2.0, help="Time bin width 
 parser.add_argument("--no_subtract_background", action="store_true", help="Do not subtract background from signal")
 parser.add_argument("--TimeTool", nargs=2, type=float, default=[0, 0.005], help="TimeTool correction factors")
 parser.add_argument("--Energy_Width", type=float, default=5, help="Energy width in eV")
-parser.add_argument("--threshold_lower", type=float, default=0.0, help="Lower threshold for signal mask optimization")
-parser.add_argument("--threshold_upper", type=float, default=0.3, help="Upper threshold for signal mask optimization")
+parser.add_argument("--threshold_lower", type=float, default=0.0, help="Lower p value threshold for signal mask optimization")
+parser.add_argument("--threshold_upper", type=float, default=0.3, help="Upper p value threshold for signal mask optimization")
 parser.add_argument("--min_count", type=int, default=100, help="Minimum count for CDW_PP")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")

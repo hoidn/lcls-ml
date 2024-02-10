@@ -1,3 +1,4 @@
+# TODO rename this module
 from typing import Union
 from typing import Dict, List, Tuple, Any
 import numpy as np
@@ -107,17 +108,35 @@ def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_sta
 
 from numba import jit
 def calculate_histograms(data, bin_boundaries, hist_start_bin):
+    """Generate histograms for the data using vectorized methods."""
     bins = len(bin_boundaries) - 1
     rows, cols = data.shape[1], data.shape[2]
     hist_shape = (bins, rows, cols)
+
+    # Reshape the data for easier computation
     reshaped_data = data.reshape(-1, rows * cols)
+
+    # Perform digitization
+    #bin_indices = np.digitize(reshaped_data, bin_boundaries) - 1
     bin_indices = np.digitize(reshaped_data, bin_boundaries)
+
+    # Initialize histograms
     histograms = np.zeros(hist_shape, dtype=np.float64)
+
+    # Populate histograms using bincount and sum along the zeroth axis
     for i in range(rows * cols):
-        valid_indices = bin_indices[:, i] <= bins
-        histograms[:, i // cols, i % cols] = np.bincount(bin_indices[:, i][valid_indices] - 1, minlength=bins)
+        valid_indices = bin_indices[:, i] < bins  # Exclude indices that fall outside the bin range or equal to the last boundary
+        histograms[:, i // cols, i % cols] = np.bincount(bin_indices[:, i][valid_indices], minlength=bins)
+        # TODO efficiency
+        # counts beyond max go into the first bin, otherwise they don't
+        # contribute to the EMD
+        histograms[hist_start_bin, i // cols, i % cols] += np.sum(reshaped_data[:, i] > bin_boundaries[-1])
+
+    # Add small constant
     histograms += 1e-9
-    return histograms[hist_start_bin:, :, :]
+    normalized_histograms = histograms #/ (1e-9 + np.sum(histograms, axis=0))
+
+    return normalized_histograms[hist_start_bin:, :, :]
 #def calculate_histograms(data, bin_boundaries, hist_start_bin):
 #    bins = len(bin_boundaries) - 1
 #    rows, cols = data.shape[1], data.shape[2]
@@ -135,7 +154,8 @@ def calculate_histograms(data, bin_boundaries, hist_start_bin):
 #
 #    histograms += 1e-9
 #    return histograms[hist_start_bin:, :, :]
-calculate_histograms = memoize_subsampled(jit(nopython=True)(calculate_histograms))
+calculate_histograms = jit(nopython=True)(calculate_histograms)
+calculate_histograms = memoize_subsampled(calculate_histograms)
 
 
 
