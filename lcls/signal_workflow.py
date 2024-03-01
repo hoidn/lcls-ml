@@ -113,14 +113,14 @@ histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 if interpolate_gaps:
     set_nearest_neighbors(histograms, cdw_output['full_mask'], roi_crop)
 
-threshold = .1
-# Run the analysis
-res = run_histogram_analysis(
-    bin_boundaries = bin_boundaries, hist_start_bin = hist_start_bin,
-    roi_x_start = roi_x_start, roi_x_end = roi_x_end, roi_y_start = roi_y_start,
-    roi_y_end = roi_y_end, data = data,
-    threshold = threshold)
-signal_mask = res['signal_mask']
+#threshold = .1
+## Run the analysis
+#res = run_histogram_analysis(
+#    bin_boundaries = bin_boundaries, hist_start_bin = hist_start_bin,
+#    roi_x_start = roi_x_start, roi_x_end = roi_x_end, roi_y_start = roi_y_start,
+#    roi_y_end = roi_y_end, data = data,
+#    threshold = threshold)
+#signal_mask = res['signal_mask']
 
 compute_signal_mask = pump_probe.compute_signal_mask
 calculate_signal_background_from_histograms = histogram_analysis.calculate_signal_background_from_histograms
