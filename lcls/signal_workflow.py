@@ -59,17 +59,13 @@ roi_crop = args.roi_crop
 roi_coordinates = args.roi_coordinates
 roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
 E0 = args.E0
-background_mask_multiple = helpers.background_mask_multiple = args.background_mask_multiple
-separator_thickness = helpers.separator_thickness = args.separator_thickness
 I0_thres = args.I0_thres
 xc = args.xc
 yc = args.yc
 xc_range = args.xc_range
 yc_range = args.yc_range
 min_peak_pixcount = args.min_peak_pixcount
-subtract_background = not args.no_subtract_background
 interpolate_gaps = args.interpolate_gaps
-estimate_center_flag = args.estimate_center
 Time_bin = args.Time_bin
 delay_option = args.delay_option
 las_delay_source = args.laser_delay_source
