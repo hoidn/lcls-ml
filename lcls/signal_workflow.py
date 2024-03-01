@@ -130,3 +130,5 @@ best_signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_bo
 
 # TODO check if signal mask is valid
 signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
+from matplotlib import pyplot as plt
+plt.imsave('signal_mask.png', signal_mask, cmap='gray')
