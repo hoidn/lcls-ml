@@ -111,7 +111,7 @@ parser.add_argument("--threshold_upper", type=float, default=0.3, help="Upper p 
 parser.add_argument("--min_count", type=int, default=100, help="Minimum count for CDW_PP")
 
 parser.add_argument("--estimate_center", action="store_true", help="Estimate the center coordinates xc and yc")
-parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate gaps in the data")
+parser.add_argument("--interpolate_gaps", action="store_true", help="Interpolate detector gaps")
 parser.add_argument("--delay_option", type=int, default=2, choices=[1, 2],
     help="Option for calculating xvar: 1 for lasDelay, 2 for lasDelay2 with FLTPOS_PS (default)")
 parser.add_argument("--laser_delay_source", type=int, default=1, choices=[1, 2],
