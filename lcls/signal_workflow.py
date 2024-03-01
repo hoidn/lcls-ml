@@ -18,7 +18,7 @@ def estimate_center(I0_x, I0_y):
     I0_x_mean,I0_y_mean = I0_x[arg].mean(),I0_y[arg].mean() # Mean position
     return I0_x_mean,I0_y_mean
 
-parser = argparse.ArgumentParser(description="Process X-ray data.")
+parser = argparse.ArgumentParser(description="Advanced analysis and processing of X-ray diffraction data for LCLS experiments.")
 parser.add_argument("run", type=int, help="Experiment run number")
 parser.add_argument("exp", type=str, help="Experiment identifier")
 parser.add_argument("h5dir", type=str, help="Directory for h5 files")
