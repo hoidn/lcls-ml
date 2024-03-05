@@ -7,9 +7,10 @@ from bokeh.layouts import gridplot
 from bokeh.models import Label
 import standard_workflow as helpers
 import histogram_analysis
-from pump_probe import optimize_signal_mask, CDW_PP
+from pump_probe import optimize_signal_mask
 import pump_probe
 from maskutils import erode_to_target, set_nearest_neighbors
+from stacks import CDW_PP
 
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     """
