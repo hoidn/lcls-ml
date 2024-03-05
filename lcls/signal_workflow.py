@@ -11,14 +11,12 @@ from pump_probe import optimize_signal_mask, CDW_PP
 import pump_probe
 from maskutils import erode_to_target, set_nearest_neighbors
 
-
-
 def estimate_center(I0_x, I0_y):
     arg = (abs(I0_x)<2.)&(abs(I0_y)<3.)
     I0_x_mean,I0_y_mean = I0_x[arg].mean(),I0_y[arg].mean() # Mean position
     return I0_x_mean,I0_y_mean
 
-parser = argparse.ArgumentParser(description="Advanced analysis and processing of X-ray diffraction data for LCLS experiments.")
+parser = argparse.ArgumentParser(description="Signal-finding module for XPP experiments.")
 parser.add_argument("run", type=int, help="Experiment run number")
 parser.add_argument("exp", type=str, help="Experiment identifier")
 parser.add_argument("h5dir", type=str, help="Directory for h5 files")
@@ -105,15 +103,6 @@ histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 if interpolate_gaps:
     set_nearest_neighbors(histograms, cdw_output['full_mask'], roi_crop)
 
-#threshold = .1
-## Run the analysis
-#res = run_histogram_analysis(
-#    bin_boundaries = bin_boundaries, hist_start_bin = hist_start_bin,
-#    roi_x_start = roi_x_start, roi_x_end = roi_x_end, roi_y_start = roi_y_start,
-#    roi_y_end = roi_y_end, data = data,
-#    threshold = threshold)
-#signal_mask = res['signal_mask']
-
 compute_signal_mask = pump_probe.compute_signal_mask
 calculate_signal_background_from_histograms = histogram_analysis.calculate_signal_background_from_histograms
 
@@ -123,4 +112,44 @@ best_signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_bo
 # TODO check if signal mask is valid
 signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
 from matplotlib import pyplot as plt
+import matplotlib.patches as patches
 plt.imsave('signal_mask.png', signal_mask, cmap='gray')
+
+def plot_heatmap_with_roi(ax, data, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
+    # Integrate data over the 0th axis
+    integrated_data = data.mean(axis=0)
+
+    # Create the heatmap
+    im = ax.imshow(integrated_data, cmap='hot', interpolation='nearest',
+                  vmin = np.percentile(integrated_data.ravel(), 10))
+
+    # Create a Rectangle patch
+    rect = patches.Rectangle((roi_y_start, roi_x_start), roi_y_end - roi_y_start, roi_x_end - roi_x_start,
+                             linewidth=5, edgecolor='blue', facecolor='none')
+
+    # Add the patch to the Axes
+    ax.add_patch(rect)
+#     plt.colorbar(im, ax = ax)
+
+# Create a multi-panel plot in a 2x2 layout
+fig, axs = plt.subplots(2, 2, figsize=(10, 10))  # Adjusted for 2x2 layout
+
+## Plot 1: EMD Values
+#axs[0, 0].imshow(res['emd_values'])
+#axs[0, 0].set_title('EMD Values')
+#
+## Plot 2: 1 - Log(P Values)
+#im = axs[0, 1].imshow(1 - np.log(res['p_values']), cmap='plasma')
+#plt.colorbar(im, ax=axs[0, 1])
+#axs[0, 1].set_title('1 - Log(P Values)')
+
+# Plot 3: Heatmap with ROI
+plot_heatmap_with_roi(axs[1, 0], histograms, roi_x_start, roi_x_end, roi_y_start, roi_y_end)
+axs[1, 0].set_title('Heatmap with background ROI')
+
+# Plot 4: Signal Mask
+axs[1, 1].imshow(signal_mask)
+axs[1, 1].set_title('Signal mask')
+
+plt.tight_layout()
+plt.show()
