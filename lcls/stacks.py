@@ -124,6 +124,9 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     'roi_mask': ROI_mask
     }
 
+from deps import create_background_mask
+import histogram_analysis as hist
+calculate_signal_background_noI0 = hist.calculate_signal_background_noI0
 def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin,
                   binned_delays, background_mask_multiple=1, subtract_background=True):
     background_mask = create_background_mask(signal_mask, background_mask_multiple, 10)
