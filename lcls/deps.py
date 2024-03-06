@@ -101,7 +101,7 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         'relative_p_values': relative_p_values
     }
 
-def calculate_signal_background_noI0(data, signal_mask, bin_boundaries, hist_start_bin, background_mask,
+def calculate_signal_background_noI0(data: np.ndarray, signal_mask: np.ndarray, bin_boundaries: np.ndarray, hist_start_bin: int, background_mask: np.ndarray,
                                      **kwargs):
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     return calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, **kwargs)
