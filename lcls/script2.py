@@ -10,7 +10,7 @@ import histogram_analysis
 from pump_probe import optimize_signal_mask
 import pump_probe
 from maskutils import erode_to_target, set_nearest_neighbors
-from stacks import CDW_PP
+from stacks import CDW_PP, extract_stacks_frames
 
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     """
@@ -158,22 +158,8 @@ cdw_output = CDW_PP(run, exp, h5dir, roi_crop, Energy_Filter, I0_thres, IPM_pos_
 
 from typing import List, Dict
 
-def combine_stacks(stacks: List[Dict[float, np.ndarray]]) -> np.ndarray:
-    """
-    Combines multiple stacks into a single 3D numpy array by concatenating the 3D arrays from each stack.
 
-    Parameters:
-        stacks (List[Dict[float, np.ndarray]]): A list of stacks, where each stack is a dictionary mapping time delays to 3D numpy arrays.
-
-    Returns:
-        np.ndarray: A single 3D numpy array obtained by stacking the 3D arrays from all provided stacks.
-    """
-    # Extract all 3D arrays from each stack and concatenate them
-    combined_array = np.concatenate([array for stack in stacks for array in stack.values()], axis=0)
-
-    return combined_array
-
-imgs_thresh = combine_stacks([cdw_output['stacks_off']])
+imgs_thresh = extract_stacks_frames([cdw_output['stacks_off']])
 
 from lcls.histogram_analysis import *
 

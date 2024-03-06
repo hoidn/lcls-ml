@@ -54,7 +54,7 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
     return stacks
 
 from typing import List, Dict
-def combine_stacks(stacks: List[Dict[str, Dict[str, np.ndarray]]]) -> np.ndarray:
+def extract_stacks_frames(stacks: List[Dict[str, Dict[str, np.ndarray]]]) -> np.ndarray:
     """
     Combines the 'images' arrays from a list of dictionaries of dictionaries into a single 3D numpy array by concatenating them. Each inner dictionary is expected to contain an 'images' key mapping to a 3D numpy array.
 
