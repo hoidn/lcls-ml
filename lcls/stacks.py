@@ -123,3 +123,74 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
     'full_mask': full_mask,
     'roi_mask': ROI_mask
     }
+
+def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin,
+                  binned_delays, background_mask_multiple=1, subtract_background=True):
+    background_mask = create_background_mask(signal_mask, background_mask_multiple, 10)
+    delays, norm_signals, std_devs = [], [], []
+
+    for delay, stack in stacks.items():
+        # Filter I0 values for the specific delay and laser condition
+        I0_filtered = I0[arg_laser_condition & (binned_delays == delay)]
+
+        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin, background_mask)
+
+        if subtract_background:
+            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        else:
+            norm_signal = signal / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+
+        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+
+        if subtract_background:
+            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        else:
+            norm_signal = (signal ) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        #norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+
+        delays.append(delay)
+        norm_signals.append(norm_signal)
+        std_devs.append(std_dev)
+
+    return delays, norm_signals, std_devs
+
+def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=True):
+    from stats import calculate_p_value
+    subtract_background = False
+    # Extracting data from CDW_PP output
+    stacks_on = cdw_pp_output['stacks_on']
+    stacks_off = cdw_pp_output['stacks_off']
+    I0 = cdw_pp_output['I0']
+    binned_delays = cdw_pp_output['binned_delays']
+    arg_laser_on = cdw_pp_output['arg_laser_on']
+    arg_laser_off = cdw_pp_output['arg_laser_off']
+
+    # Process 'Laser On' and 'Laser Off' stacks
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask,
+            bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask,
+            bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
+    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
+    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
+
+    # Calculating relative p-values
+    relative_p_values = []
+    for delay in sorted(set(delays_on) & set(delays_off)):
+        signal_on = norm_signal_on[delays_on.index(delay)]
+        signal_off = norm_signal_off[delays_off.index(delay)]
+        std_dev_on_val = std_dev_on[delays_on.index(delay)]
+        std_dev_off_val = std_dev_off[delays_off.index(delay)]
+
+        p_value = calculate_p_value(signal_on, signal_off, std_dev_on_val, std_dev_off_val)
+        relative_p_values.append(p_value)
+
+    return {
+        'delays_on': delays_on,
+        'norm_signal_on': norm_signal_on,
+        'std_dev_on': std_dev_on,
+        'delays_off': delays_off,
+        'norm_signal_off': norm_signal_off,
+        'std_dev_off': std_dev_off,
+        'relative_p_values': relative_p_values
+    }

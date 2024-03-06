@@ -14,60 +14,9 @@ from smd import SMD_Loader, EnergyFilter
 
 # TODO: Implement a command line parameter to control the EnergyFilter behavior between filtering all energies above the third harmonic by default and selecting the old behavior.
 
-def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin,
-                  binned_delays, background_mask_multiple=1, subtract_background=True):
-    background_mask = create_background_mask(signal_mask, background_mask_multiple, 10)
-    delays, norm_signals, std_devs = [], [], []
-
-    for delay, stack in stacks.items():
-        # Filter I0 values for the specific delay and laser condition
-        I0_filtered = I0[arg_laser_condition & (binned_delays == delay)]
-
-        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin, background_mask)
-
-        if subtract_background:
-            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        else:
-            norm_signal = signal / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-
-        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-
-        if subtract_background:
-            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        else:
-            norm_signal = (signal ) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        #norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-
-        delays.append(delay)
-        norm_signals.append(norm_signal)
-        std_devs.append(std_dev)
-
-    return delays, norm_signals, std_devs
-
-def calculate_p_value(signal_on, signal_off, std_dev_on, std_dev_off):
-    """
-    Corrected p-value calculation using standard normal distribution.
-
-    Args:
-    signal_on (float): Signal for 'Laser On' condition.
-    signal_off (float): Signal for 'Laser Off' condition.
-    std_dev_on (float): Standard deviation for 'Laser On' condition.
-    std_dev_off (float): Standard deviation for 'Laser Off' condition.
-
-    Returns:
-    float: Calculated p-value.
-    """
-    from scipy.stats import norm
-    delta_signal = abs(signal_on - signal_off)
-    combined_std_dev = np.sqrt(std_dev_on**2 + std_dev_off**2)
-    z_score = delta_signal / combined_std_dev
-
-    # Using the CDF of the standard normal distribution to calculate p-value
-    p_value = 2 * (1 - norm.cdf(z_score))  # Two-tailed test
-    return p_value
 
 from plots import geometric_mean
+from stacks import generate_plot_data, process_stacks
 
 def create_data_array(stacks_on, stacks_off):
     """
@@ -256,44 +205,6 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
 # Note: The functions compute_signal_mask and calculate_signal_background_from_histograms need to be predefined as per the user's environment.
 
 
-def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=True):
-    subtract_background = False
-    # Extracting data from CDW_PP output
-    stacks_on = cdw_pp_output['stacks_on']
-    stacks_off = cdw_pp_output['stacks_off']
-    I0 = cdw_pp_output['I0']
-    binned_delays = cdw_pp_output['binned_delays']
-    arg_laser_on = cdw_pp_output['arg_laser_on']
-    arg_laser_off = cdw_pp_output['arg_laser_off']
-
-    # Process 'Laser On' and 'Laser Off' stacks
-    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask,
-            bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
-    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask,
-            bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple)
-    delays_on, norm_signal_on, std_dev_on = process_stacks(stacks_on, I0, arg_laser_on, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
-    delays_off, norm_signal_off, std_dev_off = process_stacks(stacks_off, I0, arg_laser_off, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask_multiple=background_mask_multiple, subtract_background=subtract_background)
-
-    # Calculating relative p-values
-    relative_p_values = []
-    for delay in sorted(set(delays_on) & set(delays_off)):
-        signal_on = norm_signal_on[delays_on.index(delay)]
-        signal_off = norm_signal_off[delays_off.index(delay)]
-        std_dev_on_val = std_dev_on[delays_on.index(delay)]
-        std_dev_off_val = std_dev_off[delays_off.index(delay)]
-
-        p_value = calculate_p_value(signal_on, signal_off, std_dev_on_val, std_dev_off_val)
-        relative_p_values.append(p_value)
-
-    return {
-        'delays_on': delays_on,
-        'norm_signal_on': norm_signal_on,
-        'std_dev_on': std_dev_on,
-        'delays_off': delays_off,
-        'norm_signal_off': norm_signal_off,
-        'std_dev_off': std_dev_off,
-        'relative_p_values': relative_p_values
-    }
 
 import matplotlib.gridspec as gridspec
 
