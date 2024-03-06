@@ -101,7 +101,12 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         'relative_p_values': relative_p_values
     }
 
-def calculate_signal_background_noI0(data: np.ndarray, signal_mask: np.ndarray, bin_boundaries: np.ndarray, hist_start_bin: int, background_mask: np.ndarray,
+def calculate_signal_background_noI0(data: np.ndarray, signal_mask: np.ndarray, bin_boundaries: np.ndarray, hist_start_bin: int, background_mask: np.ndarray, **kwargs):
+    assert isinstance(data, np.ndarray), "data must be a numpy array"
+    assert isinstance(signal_mask, np.ndarray), "signal_mask must be a numpy array"
+    assert isinstance(bin_boundaries, np.ndarray), "bin_boundaries must be a numpy array"
+    assert isinstance(hist_start_bin, int), "hist_start_bin must be an integer"
+    assert isinstance(background_mask, np.ndarray), "background_mask must be a numpy array"
                                      **kwargs):
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     return calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, **kwargs)
