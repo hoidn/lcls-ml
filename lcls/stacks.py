@@ -49,7 +49,12 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
         stack_arg_laser = arg_laser[specific_mask & arg_laser]
 
         if stack.shape[0] >= min_count:
-            stacks[d] = {'images': stack, 'binned_delays': stack_binned_delays, 'arg_laser': stack_arg_laser}
+            assert stack.shape[0] == stack_binned_delays.shape[0] == stack_arg_laser.shape[0], "Inconsistent shapes in stack arrays"
+            stacks[d] = {
+                'images': stack,
+                'binned_delays': stack_binned_delays,
+                'arg_laser': stack_arg_laser
+            }
         else:
             print(f"Dropped delay {d} due to count {stack.shape[0]} being less than minimum required {min_count}.")
 
