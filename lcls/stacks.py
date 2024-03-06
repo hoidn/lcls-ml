@@ -30,7 +30,7 @@ def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     print(f"Generated {len(np.unique(binned_delays))} unique binned delays.")
     return binned_delays
 
-def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_mask, arg_laser):
+def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_mask, arg_laser, I0):
     print("Unique binned delays:", np.unique(binned_delays))
     unique_binned_delays = np.unique(binned_delays)
     stacks = {}
@@ -38,13 +38,15 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
     for d in unique_binned_delays:
         specific_mask = (binned_delays == d) & arg_laser
         stack = img_array[specific_mask]
+        stack_I0 = I0[specific_mask]
         stack_binned_delays = binned_delays[specific_mask]
 
         if stack.shape[0] >= min_count:
-            assert stack.shape[0] == stack_binned_delays.shape[0], "Inconsistent shapes in stack arrays"
+            assert stack.shape[0] == stack_binned_delays.shape[0] == stack_I0.shape[0], "Inconsistent shapes in stack arrays"
             stacks[d] = {
                 'images': stack,
                 'delays': stack_binned_delays,
+                'I0': stack_I0,
             }
         else:
             print(f"Dropped delay {d} due to count {stack.shape[0]} being less than minimum required {min_count}.")
