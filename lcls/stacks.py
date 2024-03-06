@@ -97,8 +97,8 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
 
     binned_delays = delay_bin(delay, np.array(delay_source), Time_bin, arg_delay_nan)
 
-    stacks_on = extract_stacks_by_delay(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count, ROI_mask)
-    stacks_off = extract_stacks_by_delay(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count, ROI_mask)
+    stacks_on = extract_stacks_by_delay(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count, ROI_mask, arg_laser_on)
+    stacks_off = extract_stacks_by_delay(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count, ROI_mask, arg_laser_off)
 
     return {
     'stacks_on': stacks_on,
