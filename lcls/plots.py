@@ -22,5 +22,3 @@ def geometric_mean(arr):
     """
     return np.exp(np.mean(np.log(arr)))
 
-from pump_probe import process_stacks
-
