@@ -53,6 +53,22 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
 
     return stacks
 
+from typing import List, Dict
+def combine_stacks(stacks: List[Dict[float, np.ndarray]]) -> np.ndarray:
+    """
+    Combines multiple stacks into a single 3D numpy array by concatenating the 3D arrays from each stack.
+
+    Parameters:
+        stacks (List[Dict[float, np.ndarray]]): A list of stacks, where each stack is a dictionary mapping time delays to 3D numpy arrays.
+
+    Returns:
+        np.ndarray: A single 3D numpy array obtained by stacking the 3D arrays from all provided stacks.
+    """
+    # Extract all 3D arrays from each stack and concatenate them
+    combined_array = np.concatenate([array for stack in stacks for array in stack.values()], axis=0)
+
+    return combined_array
+
 def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Filter, Time_bin, TimeTool, las_delay_source,
           min_count = 200):
     from smd import SMD_Loader, EnergyFilter
