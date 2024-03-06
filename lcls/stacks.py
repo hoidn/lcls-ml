@@ -54,18 +54,22 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
     return stacks
 
 from typing import List, Dict
-def combine_stacks(stacks: List[Dict]) -> np.ndarray:
+def combine_stacks(stacks: List[Dict[str, Dict[str, np.ndarray]]]) -> np.ndarray:
     """
-    Combines the 'images' arrays from multiple stacks into a single 3D numpy array by concatenating them.
+    Combines the 'images' arrays from a list of dictionaries of dictionaries into a single 3D numpy array by concatenating them. Each inner dictionary is expected to contain an 'images' key mapping to a 3D numpy array.
 
     Parameters:
-        stacks (List[Dict]): A list of stacks, where each stack is a dictionary containing 'images', 'delays', and 'I0' among potentially other keys.
+        stacks (List[Dict[str, Dict[str, np.ndarray]]]): A list of dictionaries, where each dictionary represents a condition with keys mapping to another dictionary containing 'images', 'delays', and 'I0'.
 
     Returns:
         np.ndarray: A single 3D numpy array obtained by concatenating the 'images' arrays from all provided stacks.
     """
     # Extract 'images' arrays from each stack and concatenate them
-    combined_array = np.concatenate([stack['images'] for stack in stacks], axis=0)
+    combined_images = []
+    for stack in stacks:
+        for condition, data in stack.items():
+            combined_images.append(data['images'])
+    combined_array = np.concatenate(combined_images, axis=0)
 
     return combined_array
 
