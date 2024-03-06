@@ -35,25 +35,16 @@ def extract_stacks_by_delay(binned_delays, img_array, bin_width, min_count, ROI_
     unique_binned_delays = np.unique(binned_delays)
     stacks = {}
 
-    mask = np.zeros_like(binned_delays, dtype=bool)
     for d in unique_binned_delays:
-        mask |= (binned_delays == d)
-
-    filtered_binned_delays = binned_delays[mask]
-    filtered_imgs = img_array[mask]
-
-    for d in unique_binned_delays:
-        specific_mask = (filtered_binned_delays == d)
-        stack = filtered_imgs[specific_mask]
-        stack_binned_delays = binned_delays[specific_mask & arg_laser]
-        stack_arg_laser = arg_laser[specific_mask & arg_laser]
+        specific_mask = (binned_delays == d) & arg_laser
+        stack = img_array[specific_mask]
+        stack_binned_delays = binned_delays[specific_mask]
 
         if stack.shape[0] >= min_count:
-            assert stack.shape[0] == stack_binned_delays.shape[0] == stack_arg_laser.shape[0], "Inconsistent shapes in stack arrays"
+            assert stack.shape[0] == stack_binned_delays.shape[0], "Inconsistent shapes in stack arrays"
             stacks[d] = {
                 'images': stack,
-                'binned_delays': stack_binned_delays,
-                'arg_laser': stack_arg_laser
+                'delays': stack_binned_delays,
             }
         else:
             print(f"Dropped delay {d} due to count {stack.shape[0]} being less than minimum required {min_count}.")
@@ -97,8 +88,8 @@ def CDW_PP(Run_Number, exp, h5dir, ROI, Energy_Filter, I0_Threshold, IPM_pos_Fil
 
     binned_delays = delay_bin(delay, np.array(delay_source), Time_bin, arg_delay_nan)
 
-    stacks_on = extract_stacks_by_delay(binned_delays[arg_laser_on], imgs[arg_laser_on], Time_bin, min_count, ROI_mask, arg_laser_on)
-    stacks_off = extract_stacks_by_delay(binned_delays[arg_laser_off], imgs[arg_laser_off], Time_bin, min_count, ROI_mask, arg_laser_off)
+    stacks_on = extract_stacks_by_delay(binned_delays, imgs, Time_bin, min_count, ROI_mask, arg_laser_on, I0)
+    stacks_off = extract_stacks_by_delay(binned_delays, imgs, Time_bin, min_count, ROI_mask, arg_laser_off, I0)
 
     return {
     'stacks_on': stacks_on,
