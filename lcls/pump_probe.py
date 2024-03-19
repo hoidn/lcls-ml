@@ -17,7 +17,8 @@ from smd import SMD_Loader, EnergyFilter
 
 # TODO: Implement a command line parameter to control the EnergyFilter behavior between filtering all energies above the third harmonic by default and selecting the old behavior.
 
-from lcls.plots import geometric_mean
+from lcls.visualization import plot_data, plot_normalized_signal_vs_time_delay, combine_plots, combine_plots_nopp
+from lcls.statistics import calculate_relative_p_values, generate_pp_lazy_data
 
 def create_data_array(stacks_on, stacks_off):
     """
