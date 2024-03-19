@@ -1,4 +1,4 @@
-from pump_probe import calculate_p_value
+from deps import calculate_p_value
 import histogram_analysis
 import numpy as np
 

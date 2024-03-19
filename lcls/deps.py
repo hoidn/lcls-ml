@@ -91,15 +91,6 @@ def generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bi
         'background_mask': background_mask
     }
 
-    return {
-        'delays_on': delays_on,
-        'norm_signal_on': norm_signal_on,
-        'std_dev_on': std_dev_on,
-        'delays_off': delays_off,
-        'norm_signal_off': norm_signal_off,
-        'std_dev_off': std_dev_off,
-        'relative_p_values': relative_p_values
-    }
 
 def calculate_signal_background_noI0(data: np.ndarray, signal_mask: np.ndarray, bin_boundaries: np.ndarray, hist_start_bin: int, background_mask: np.ndarray, **kwargs):
     assert isinstance(data, np.ndarray), "data must be a numpy array"
@@ -107,7 +98,6 @@ def calculate_signal_background_noI0(data: np.ndarray, signal_mask: np.ndarray, 
     assert isinstance(bin_boundaries, np.ndarray), "bin_boundaries must be a numpy array"
     assert isinstance(hist_start_bin, int), "hist_start_bin must be an integer"
     assert isinstance(background_mask, np.ndarray), "background_mask must be a numpy array"
-                                     **kwargs):
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     return calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, **kwargs)
 
@@ -169,14 +159,6 @@ def calculate_total_counts(integrated_counts: np.ndarray, signal_mask: np.ndarra
     S = np.sum(counts_in_signal)
     return S
 
-def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarray, buffer: np.ndarray) -> Tuple[float, float]:
-    # TODO unequal signal and background
-    N = np.sum(signal_mask)
-    M = calculate_total_counts(integrated_counts, buffer)
-    if M is None:
-        return None
-    S = calculate_total_counts(integrated_counts, signal_mask)
-    return S - (M * N / np.sum(buffer)), M * N / np.sum(buffer)
 
 def calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, Emin = 8, Emax = 10):
     energies = bin_boundaries[hist_start_bin + 1:]
@@ -188,15 +170,6 @@ def calculate_signal_background_from_histograms(local_histograms, signal_mask, b
     nbg = np.sum(background_mask)
     total_var = var_signal + (var_bg * ((nsignal / nbg)**2))
     return signal, bg, total_var
-
-
-def create_background_mask(signal_mask, background_mask_multiple, thickness, separator_thickness = 5):
-    num_pixels_signal_mask = np.sum(signal_mask)
-    num_pixels_background_mask = int(num_pixels_signal_mask * background_mask_multiple)
-    buffer = create_continuous_buffer(signal_mask,
-                initial_thickness=thickness, num_pixels=num_pixels_background_mask,
-                                               separator_thickness=separator_thickness)
-    return buffer
 
 
 def filter_and_sum_histograms(histograms, energies, Emin, Emax):
@@ -214,33 +187,3 @@ def filter_and_sum_histograms(histograms, energies, Emin, Emax):
     return summed_histograms
 
 
-def create_continuous_buffer(signal_mask: np.ndarray, initial_thickness: int = 10,
-                             num_pixels: int = None, separator_thickness: int = 5) -> np.ndarray:
-    """
-    Create a continuous buffer around a signal mask with a gap, targeting a specific number of pixels.
-
-    Args:
-        signal_mask (np.ndarray): The original signal mask.
-        initial_thickness (int): The initial thickness for dilation.
-        num_pixels (int, optional): The target number of pixels in the buffer.
-        separator_thickness (int): The thickness of the gap between the signal mask and the buffer.
-
-    Returns:
-        np.ndarray: The created buffer.
-    """
-    if num_pixels > np.prod(signal_mask.shape) - np.sum(signal_mask):
-        raise ValueError
-    assert signal_mask.sum() > 0
-    # Create a gap between the signal mask and the buffer
-    dilated_signal = binary_dilation(signal_mask, iterations=separator_thickness)
-    #gap_mask = dilated_signal & (~signal_mask)
-
-    # Adjust the buffer to meet or exceed the target number of pixels
-    current_num_pixels = 0
-    thickness = 0
-    while num_pixels is not None and current_num_pixels < num_pixels:
-        thickness += 1
-        buffer = binary_dilation(dilated_signal, iterations=thickness) & (~signal_mask)
-        current_num_pixels = np.sum(buffer)
-
-    return buffer
