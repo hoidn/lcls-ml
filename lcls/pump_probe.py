@@ -1,6 +1,7 @@
 from lcls.analysis import run_analysis
 from lcls.optimization import optimize_analysis, optimize_signal_mask
-from lcls.plots import plot_data, calculate_figure_of_merit
+from lcls.visualization import plot_data, plot_normalized_signal_vs_time_delay, combine_plots, combine_plots_nopp
+from lcls.statistics import calculate_relative_p_values, generate_pp_lazy_data
 from lcls.masks import compute_signal_mask, create_background_mask
 
 from typing import Dict, List, Tuple, Any
