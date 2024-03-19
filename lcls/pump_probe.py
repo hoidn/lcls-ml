@@ -1,5 +1,3 @@
-from lcls.analysis import run_analysis
-from lcls.optimization import optimize_analysis, optimize_signal_mask
 from lcls.visualization import plot_data, plot_normalized_signal_vs_time_delay, combine_plots, combine_plots_nopp
 from lcls.statistics import calculate_relative_p_values, generate_pp_lazy_data
 from lcls.masks import compute_signal_mask, create_background_mask
@@ -10,10 +8,7 @@ import matplotlib.pyplot as plt
 import pvalues
 compute_aggregate_pvals_with_custom_background = pvalues.compute_aggregate_pvals_with_custom_background
 
-import histogram_analysis as hist
-calculate_signal_background_noI0 = hist.calculate_signal_background_noI0
-
-from smd import SMD_Loader, EnergyFilter
+from lcls.deps import calculate_signal_background_noI0
 
 # TODO: Implement a command line parameter to control the EnergyFilter behavior between filtering all energies above the third harmonic by default and selecting the old behavior.
 
