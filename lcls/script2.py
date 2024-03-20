@@ -212,14 +212,19 @@ signal_mask = res['signal_mask']
 compute_signal_mask = pump_probe.compute_signal_mask
 calculate_signal_background_from_histograms = histogram_analysis.calculate_signal_background_from_histograms
 
-best_signal_mask, best_params, grid_search_results = optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histograms,
-                         threshold_lower=args.threshold_lower, threshold_upper=args.threshold_upper, num_threshold_points=15)
+best_signal_mask, best_background_mask, best_params, grid_search_results = optimize_signal_mask(
+    bin_boundaries, hist_start_bin, roi_coordinates, histograms,
+    threshold_lower=args.threshold_lower, threshold_upper=args.threshold_upper, 
+    num_threshold_points=15, background_mask_multiple=args.background_mask_multiple, thickness=args.separator_thickness
+)
 
-# TODO check if signal mask is valid
 signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
+background_mask = best_background_mask
 
-cdw_data = pump_probe.generate_plot_data(cdw_output, signal_mask, bin_boundaries,
-                              hist_start_bin, roi_coordinates, background_mask_multiple, subtract_background=subtract_background)
+cdw_data = pump_probe.generate_plot_data(
+    cdw_output, signal_mask, background_mask, bin_boundaries,
+    hist_start_bin, roi_coordinates, subtract_background=subtract_background
+)
 pump_probe.plot_data(cdw_data)
 
 import matplotlib.pyplot as plt

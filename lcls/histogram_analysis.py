@@ -248,9 +248,9 @@ def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries,
     else:
         plt.show()
 
-def run_histogram_analysis(data = None, histograms=None, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
+def run_histogram_analysis(data=None, histograms=None, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
                            roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
-                           threshold=.1, cluster_size_threshold=50):
+                           threshold=0.1, cluster_size_threshold=50):
     if histograms is None:
         histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 
@@ -282,7 +282,8 @@ def run_histogram_analysis(data = None, histograms=None, bin_boundaries=np.arang
         "null_distribution": null_distribution,
         "p_values": p_values,
         "labeled_array": labeled_array,
-        "signal_mask": signal_mask
+        "signal_mask": signal_mask,
+        "background_mask": background_mask
     }
 #     return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution, signal_mask
 
@@ -318,3 +319,16 @@ def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarra
     result = S - N * M
     return result
 
+def create_masks(histograms, bin_boundaries, hist_start_bin, roi_coordinates, threshold, background_mask_multiple, thickness):
+    roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
+
+    analysis_results = run_histogram_analysis(
+        bin_boundaries=bin_boundaries, hist_start_bin=hist_start_bin, 
+        roi_x_start=roi_x_start, roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
+        histograms=histograms, threshold=threshold
+    )
+    signal_mask = analysis_results['signal_mask']
+
+    background_mask = create_background_mask(signal_mask, background_mask_multiple, thickness)
+
+    return signal_mask, background_mask

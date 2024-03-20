@@ -34,60 +34,40 @@ def create_data_array(stacks_on, stacks_off):
     return data
 
 from histogram_analysis import run_histogram_analysis
-# TODO signal mask from histograms
+
 def compute_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, threshold,
-                                data = None, histograms = None):
-    """
-    Computes the signal mask based on the given parameters and threshold.
+                        background_mask_multiple, thickness, data=None, histograms=None):
+    if histograms is None:
+        histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 
-    :param bin_boundaries: The boundaries for histogram bins.
-    :param hist_start_bin: The starting bin for the histogram.
-    :param roi_coordinates: A tuple of (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
-    :param data: The 3D numpy array containing the data.
-    :param threshold: The threshold value for the analysis.
-    :return: The computed signal mask.
-    """
-    roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
-    res = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries, hist_start_bin=hist_start_bin,
-                                 roi_x_start=roi_x_start, roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
-                                 data=data, threshold=threshold)
+    signal_mask, background_mask = create_masks(
+        histograms, bin_boundaries, hist_start_bin, roi_coordinates,
+        threshold, background_mask_multiple, thickness
+    )
 
-    return res['signal_mask']
+    return signal_mask, background_mask
 
-def run_analysis_and_visualization(cdw_output, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, threshold,
-                                  data = None, histograms = None):
-    """
-    Top-level function to run analysis and visualization.
-
-    :param cdw_output: Dictionary containing 'stacks_on' and 'stacks_off'.
-    :param bin_boundaries: Boundaries for histogram bins.
-    :param hist_start_bin: The starting bin for the histogram.
-    :param roi_coordinates: ROI coordinates as a tuple (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
-    :param background_mask_multiple: Parameter for the plot_normalized_signal_vs_time_delay function.
-    :param threshold: Threshold value for signal mask calculation.
-    :return: Dictionary capturing the outputs of the plot_normalized_signal_vs_time_delay function.
-    """
+def run_analysis_and_visualization(cdw_output, bin_boundaries, hist_start_bin, roi_coordinates,
+                                    background_mask_multiple, threshold, thickness,
+                                    data=None, histograms=None):
     if histograms is None:
         if data is None:
-            # Calculate 'data'
             data = create_data_array(cdw_output['stacks_on'], cdw_output['stacks_off'])
         else:
-            # Calculate 'histograms'
             histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 
-    # Run histogram analysis to get the signal mask
-    analysis_results = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries,
-                                              hist_start_bin=hist_start_bin, roi_x_start=roi_x_start,
-                                              roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
-                                              threshold=threshold)
-    signal_mask = analysis_results['signal_mask']
+    signal_mask, background_mask = compute_signal_mask(
+        bin_boundaries, hist_start_bin, roi_coordinates, threshold,
+        background_mask_multiple, thickness, data=data, histograms=histograms
+    )
 
-    # Run the analysis/visualization
-    plot_results = plot_normalized_signal_vs_time_delay(cdw_output, signal_mask,
-                                                        bin_boundaries, hist_start_bin,
-                                                        roi_coordinates, background_mask_multiple)
+    plot_results = plot_normalized_signal_vs_time_delay(
+        cdw_output, signal_mask, background_mask,
+        bin_boundaries, hist_start_bin, roi_coordinates
+    )
 
     return plot_results
+
 
 def calculate_figure_of_merit(analysis_results):
     """
