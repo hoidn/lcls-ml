@@ -84,19 +84,3 @@ def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Del
     plt.savefig(save_path)  # Save the figure to a file
     plt.show()  # Display the figure
 
-def calculate_figure_of_merit(analysis_results):
-    """
-    Calculates the geometric mean of the p-values from the analysis results.
-
-    :param analysis_results: Dictionary containing analysis results with p-values.
-    :return: Geometric mean of the p-values.
-    """
-    p_values = analysis_results['relative_p_values']  # Extract p-values from the results
-    p_values = np.array(p_values)
-    p_values = p_values[p_values > 0]  # Exclude non-positive values for geometric mean calculation
-
-    if len(p_values) == 0:
-        return 0  # Return 0 if there are no positive p-values
-
-    geometric_mean = np.exp(np.mean(np.log(p_values)))
-    return 1 - geometric_mean

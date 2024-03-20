@@ -32,24 +32,6 @@ def create_data_array(stacks_on, stacks_off):
 
 from histogram_analysis import run_histogram_analysis
 # TODO signal mask from histograms
-def compute_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, threshold,
-                                data = None, histograms = None):
-    """
-    Computes the signal mask based on the given parameters and threshold.
-
-    :param bin_boundaries: The boundaries for histogram bins.
-    :param hist_start_bin: The starting bin for the histogram.
-    :param roi_coordinates: A tuple of (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
-    :param data: The 3D numpy array containing the data.
-    :param threshold: The threshold value for the analysis.
-    :return: The computed signal mask.
-    """
-    roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
-    res = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries, hist_start_bin=hist_start_bin,
-                                 roi_x_start=roi_x_start, roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
-                                 data=data, threshold=threshold)
-
-    return res['signal_mask']
 
 def run_analysis_and_visualization(cdw_output, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, threshold,
                                   data = None, histograms = None):
@@ -145,7 +127,6 @@ def optimize_figure_of_merit(cdw_output, bin_boundaries, hist_start_bin, roi_coo
         'best_figure_of_merit': best_figure_of_merit
     }
 
-from deps import create_background_mask
 def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histograms,
                          threshold_lower=0., threshold_upper=.5,
                          num_threshold_points=10, num_runs=5,
@@ -199,144 +180,6 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
 
     return best_signal_mask, best_threshold, grid_search_results_np
 
-# Note: The functions compute_signal_mask and calculate_signal_background_from_histograms need to be predefined as per the user's environment.
-
-
-
 import matplotlib.gridspec as gridspec
-
-def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Delay', save_path='plot.png'):
-    fig = plt.gcf()
-
-    if subplot_spec is None:
-        gs = gridspec.GridSpec(2, 1)  # Default to 2x1 grid
-        ax1 = fig.add_subplot(gs[0])
-        ax2 = fig.add_subplot(gs[1])
-    else:
-        ax1 = fig.add_subplot(subplot_spec[0])
-        ax2 = fig.add_subplot(subplot_spec[1])
-
-    delays_on = data['delays_on']
-    norm_signal_on = data['norm_signal_on']
-    std_dev_on = data['std_dev_on']
-    delays_off = data['delays_off']
-    norm_signal_off = data['norm_signal_off']
-    std_dev_off = data['std_dev_off']
-    relative_p_values = data['relative_p_values']
-
-    ax1.errorbar(delays_on, norm_signal_on, yerr=std_dev_on, fmt='rs-', label='Laser On: Signal')
-    ax1.errorbar(delays_off, norm_signal_off, yerr=std_dev_off, fmt='ks-', mec='k', mfc='white', alpha=0.2, label='Laser Off: Signal')
-    ax1.set_xlabel('Time Delay (ps)')
-    ax1.set_ylabel('Normalized Signal')
-    ax1.set_title(plot_title)
-    ax1.legend()
-    ax1.grid(True)
-    ax1.minorticks_on()
-
-    neg_log_p_values = [-np.log10(p) if p > 0 else 0 for p in relative_p_values]
-    ax2.set_xlabel('Time Delay')
-    ax2.set_ylabel('-log(P-value)')
-    ax2.set_title('-log(P-value) vs Time Delay')
-    ax2.grid(True)
-    ax2.scatter(sorted(set(delays_on) & set(delays_off)), neg_log_p_values, color='red', label='-log(p-value)')
-
-    label_offset = 0.2
-    for p_val, label in zip([0.5, 0.1, 0.01, 0.001], ['50%', '10%', '1%', '0.1%']):
-        neg_log_p_val = -np.log10(p_val)
-        ax2.axhline(y=neg_log_p_val, color='black', linestyle='--')
-        ax2.text(ax2.get_xlim()[1], neg_log_p_val + label_offset, f'{label} level', va='center', ha='right', fontsize=18, color='black')
-
-    ax2.legend()
-    ax2.set_title('FOM: {:.2f}'.format(-np.log10(geometric_mean(relative_p_values))))
-    #ax2.set_title('FOM: {:.2f}'.format(1 - geometric_mean(relative_p_values)))
-
-    #ax2.set_ylim(0, 4)
-
-    plt.tight_layout()  # Adjust layout to prevent overlapping
-    plt.savefig(save_path)  # Save the figure to a file
-    plt.show()  # Display the figure
-
-def plot_normalized_signal_vs_time_delay(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple):
-    plot_data_dict = generate_plot_data(cdw_pp_output, signal_mask, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple)
-    plot_data(plot_data_dict)
-    return plot_data_dict
-
-from scipy.stats import norm
-def calculate_relative_p_values(Intensity_on, Intensity_off, assume_photon_counts=True):
-    p_values = []
-    for i in range(len(Intensity_on)):
-        signal_on = Intensity_on[i, 0]
-        signal_off = Intensity_off[i, 0]
-
-        if assume_photon_counts:
-            std_dev_on = np.sqrt(signal_on)
-            std_dev_off = np.sqrt(signal_off)
-        else:
-            std_dev_on = Intensity_on[i, 1]
-            std_dev_off = Intensity_off[i, 1]
-
-        delta_signal = abs(signal_on - signal_off)
-        combined_std_dev = np.sqrt(std_dev_on**2 + std_dev_off**2)
-        z_score = delta_signal / combined_std_dev
-        p_value = 2 * (1 - norm.cdf(z_score))  # Two-tailed test
-        p_values.append(p_value)
-    return np.array(p_values)
-
-def generate_pp_lazy_data(imgs_on, imgs_off, mask, delay, assume_photon_counts=False):
-    Intensity_on, Intensity_off = [], []
-    npixels = (mask == 1).sum()
-    for i in range(imgs_on.shape[0]):
-        Intensity_on.append(imgs_on[i][mask == 1].mean())
-        Intensity_on.append(imgs_on[i][mask == 1].std() / np.sqrt(npixels))
-        Intensity_off.append(imgs_off[i][mask == 1].mean())
-        Intensity_off.append(imgs_off[i][mask == 1].std() / np.sqrt(npixels))
-
-    Intensity_on = np.array(Intensity_on).reshape(imgs_on.shape[0], 2)
-    Intensity_off = np.array(Intensity_off).reshape(imgs_on.shape[0], 2)
-
-    # Calculate relative p-values
-    p_values = calculate_relative_p_values(Intensity_on, Intensity_off, assume_photon_counts)
-
-    return {
-        'delay': delay,
-        'Intensity_on': Intensity_on,
-        'Intensity_off': Intensity_off,
-        'p_values': p_values
-    }
-
 from matplotlib.gridspec import GridSpec
-def combine_plots(pp_lazy_data, cdw_data):
-    # Create a figure with a 2x2 grid of subplots
-    fig = plt.figure(figsize=(12, 10))
-    gs = GridSpec(2, 2, figure=fig)
 
-    # First pair of plots
-    plot_data_dict1 = {
-        'delays_on': pp_lazy_data['delay'],
-        'norm_signal_on': pp_lazy_data['Intensity_on'][:, 0],
-        'std_dev_on': pp_lazy_data['Intensity_on'][:, 1],
-        'delays_off': pp_lazy_data['delay'],
-        'norm_signal_off': pp_lazy_data['Intensity_off'][:, 0],
-        'std_dev_off': pp_lazy_data['Intensity_off'][:, 1],
-        'relative_p_values': pp_lazy_data['p_values']
-    }
-    plot_data(plot_data_dict1, subplot_spec=[gs[0, 1], gs[1, 1]], plot_title = 'Human')
-
-    # Second pair of plots
-    plot_data(cdw_data, subplot_spec=[gs[0, 0], gs[1, 0]], plot_title = 'Automated')
-
-    plt.tight_layout()
-    plt.show()
-
-
-def combine_plots_nopp(cdw_data, human_data):
-    # Create a figure with a 2x2 grid of subplots
-    fig = plt.figure(figsize=(12, 10))
-    gs = GridSpec(2, 2, figure=fig)
-
-
-    plot_data(cdw_data, subplot_spec=[gs[0, 0], gs[1, 0]], plot_title = 'Automated')
-    plot_data(human_data, subplot_spec=[gs[0, 1], gs[1, 1]], plot_title = 'Human')
-
-    plt.tight_layout()
-    plt.show()
