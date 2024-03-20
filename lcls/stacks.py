@@ -151,7 +151,7 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, background_mask
     return delays, norm_signals, std_devs
 
 def generate_plot_data(cdw_pp_output, signal_mask, background_mask, bin_boundaries, hist_start_bin, roi_coordinates, subtract_background=True):
-    from stats import calculate_p_value
+    from deps import calculate_p_value
 
     stacks_on = cdw_pp_output['stacks_on']
     stacks_off = cdw_pp_output['stacks_off']
