@@ -21,7 +21,7 @@ from deps import calculate_signal_background_from_histograms
 from deps import calculate_signal_background_noI0
 from deps import memoize_subsampled
 from deps import calculate_total_counts
-from deps import create_background_mask
+from masks import create_background_mask
 from deps import create_continuous_buffer
 
 def memoize_general(func):
@@ -217,36 +217,6 @@ def visualize_size_filtered_clusters(histogram_array, binary_mask):
     summed_histogram = sum_histograms_by_mask(histogram_array, binary_mask)
     visualize_clusters(binary_mask, 'Size-Filtered Negative Clusters')
 
-def visualize_histogram_comparison(histogram_array, binary_mask, bin_boundaries, hist_start_bin, save_path = None,
-                                  agg = 'mean'):
-    energies = bin_boundaries[hist_start_bin + 1:]
-    summed_histogram = sum_histograms_by_mask(histogram_array, binary_mask, agg = agg)
-    summed_histogram_signal = sum_histograms_by_mask(histogram_array, ~binary_mask, agg = agg)
-#     aggregate_histogram = np.sum(histogram_array, axis=(1, 2))
-#     histogram_difference = aggregate_histogram - summed_histogram
-
-    fig, axes = plt.subplots(3, 1, figsize=(12, 18))
-
-    axes[0].bar(energies, sum_histograms_by_mask(histogram_array, np.ones_like(binary_mask), agg = agg), color='green', alpha=0.7)
-    axes[0].set_title('Aggregate Histogram with No Filtering')
-    axes[0].set_xlabel('energy (keV)')
-    axes[0].set_ylabel('mean frequency')
-
-    axes[1].bar(energies, summed_histogram, color='blue', alpha=0.7)
-    axes[1].set_title('Aggregate histogram of non-signal pixels')
-    axes[1].set_xlabel('energy (keV)')
-    axes[1].set_ylabel('mean frequency')
-
-    axes[2].bar(energies, summed_histogram_signal, color='red', alpha=0.7)
-    axes[2].set_title('Aggregate histogram of signal candidate clusters')
-    axes[2].set_xlabel('energy (keV)')
-    axes[2].set_ylabel('mean frequency')
-
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(f"{save_path}.png", dpi=300)
-    else:
-        plt.show()
 
 def run_histogram_analysis(data=None, histograms=None, bin_boundaries=np.arange(-10, 30, 0.2), hist_start_bin=60,
                            roi_x_start=30, roi_x_end=80, roi_y_start=40, roi_y_end=90, num_permutations=1000,
@@ -283,7 +253,6 @@ def run_histogram_analysis(data=None, histograms=None, bin_boundaries=np.arange(
         "p_values": p_values,
         "labeled_array": labeled_array,
         "signal_mask": signal_mask,
-        "background_mask": background_mask
     }
 #     return emd_values, p_values, labeled_array, roi_connected_cluster, null_distribution, signal_mask
 
@@ -294,30 +263,6 @@ def visualize_roi_connected_cluster(labeled_array, roi_x_start, roi_x_end, roi_y
     roi_connected_cluster = (labeled_array == roi_cluster_label)
 
     visualize_clusters(roi_connected_cluster, 'Cluster Connected to the ROI')
-
-
-
-
-
-def calculate_average_counts(integrated_counts: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
-    counts_in_buffer = integrated_counts[buffer]
-    if counts_in_buffer.size == 0:
-        return None
-    M = np.mean(counts_in_buffer)
-    return M
-
-
-
-def background_subtraction(integrated_counts: np.ndarray, signal_mask: np.ndarray, buffer: np.ndarray) -> Union[float, None]:
-    # TODO unequal signal and background
-    N = np.sum(signal_mask)
-    M = calculate_total_counts(integrated_counts, buffer)
-    if M is None:
-        return None
-    S = calculate_total_counts(integrated_counts, signal_mask)
-    return S, M * N / np.sum(buffer)
-    result = S - N * M
-    return result
 
 def create_masks(histograms, bin_boundaries, hist_start_bin, roi_coordinates, threshold, background_mask_multiple, thickness):
     roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
