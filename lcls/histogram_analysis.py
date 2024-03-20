@@ -21,7 +21,7 @@ from deps import calculate_signal_background_from_histograms
 from deps import calculate_signal_background_noI0
 from deps import memoize_subsampled
 from deps import calculate_total_counts
-from masks import create_background_mask
+from deps import create_background_mask
 from deps import create_continuous_buffer
 
 def memoize_general(func):

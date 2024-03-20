@@ -135,7 +135,7 @@ def process_stacks(stacks, I0, arg_laser_condition, signal_mask, background_mask
     for delay, stack in stacks.items():
         I0_filtered = I0[arg_laser_condition & (binned_delays == delay)]
 
-        signal, bg, total_var = calculate_signal_background_noI0(stack['images'], signal_mask, background_mask, bin_boundaries, hist_start_bin)
+        signal, bg, total_var = calculate_signal_background_noI0(stack['images'], signal_mask, bin_boundaries, hist_start_bin, background_mask)
 
         if subtract_background:
             norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0

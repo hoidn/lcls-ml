@@ -1,16 +1,20 @@
-import argparse
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from bokeh.plotting import figure, output_file, save
-from bokeh.layouts import gridplot
-from bokeh.models import Label
-import standard_workflow as helpers
-import histogram_analysis
-from pump_probe import optimize_signal_mask
-import pump_probe
+#from bokeh.layouts import gridplot
+#from bokeh.models import Label
+#from bokeh.plotting import figure, output_file, save
 from maskutils import erode_to_target, set_nearest_neighbors
+from pathlib import Path
+from pump_probe import optimize_signal_mask
+from scipy.ndimage import label
+from scipy.stats import wasserstein_distance
 from stacks import CDW_PP, extract_stacks_frames
+from typing import List, Dict
+import argparse
+import histogram_analysis
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import numpy as np
+import pump_probe
+#import standard_workflow as helpers
 
 def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     """
@@ -24,51 +28,6 @@ def delay_bin(delay, delay_raw, Time_bin, arg_delay_nan):
     binned_delays = np.array([bins[idx-1] if idx > 0 else bins[0] for idx in binned_indices])
 #     print('Number of laser delays is: {0:d}, with an interval of {1:.2f} ps.'.format(num_delays,Time_bin))
     return binned_delays
-
-def plot_data_bokeh(data, plot_title='Normalized Signal vs Time Delay'):
-    output_file("plot.html")
-
-    # Preparing data
-    delays_on = data['delays_on']
-    norm_signal_on = data['norm_signal_on']
-    std_dev_on = data['std_dev_on']
-    delays_off = data['delays_off']
-    norm_signal_off = data['norm_signal_off']
-    std_dev_off = data['std_dev_off']
-    relative_p_values = data['relative_p_values']
-
-    # Determine x-axis range
-    x_min = min(min(delays_on), min(delays_off))
-    x_max = max(max(delays_on), max(delays_off))
-
-    # Plot 1 - Normalized Signal vs Time Delay modifications
-    p1 = figure(title=plot_title, x_axis_label='Time Delay (ps)', y_axis_label='Normalized Signal', x_range=(x_min, x_max))
-    p1.circle(delays_on, norm_signal_on, legend_label='Laser On: Signal', color="red")
-    p1.line(delays_on, norm_signal_on, color="red", legend_label='Laser On: Connected')  # Added line
-    p1.circle(delays_off, norm_signal_off, legend_label='Laser Off: Signal', color="black")
-    p1.line(delays_off, norm_signal_off, color="black", legend_label='Laser Off: Connected')  # Added line
-
-    # Enhanced error bars with increased thickness
-    p1.segment(delays_on, norm_signal_on - std_dev_on, delays_on, norm_signal_on + std_dev_on, color="red", line_width=2)
-    p1.segment(delays_off, norm_signal_off - std_dev_off, delays_off, norm_signal_off + std_dev_off, color="black", line_width=2)
-
-
-    # Plot 2 - -log(P-value) vs Time Delay
-    neg_log_p_values = [-np.log10(p) if p > 0 else 0 for p in relative_p_values]
-    p2 = figure(title='-log(P-value) vs Time Delay', x_axis_label='Time Delay', y_axis_label='-log(P-value)', x_range=(x_min, x_max))
-    p2.circle(sorted(set(delays_on) & set(delays_off)), neg_log_p_values, color="red", legend_label='-log(p-value)')
-
-    # Threshold lines and labels
-    for p_val, label in zip([0.5, 0.1, 0.01, 0.001], ['50%', '10%', '1%', '0.1%']):
-        neg_log_p_val = -np.log10(p_val)
-        p2.line([x_min, x_max], [neg_log_p_val, neg_log_p_val], line_dash="dashed", color="black")
-        label = Label(x=x_max, y=neg_log_p_val, text=f'{label} level', y_offset=8)
-        p2.add_layout(label)
-
-    # Combine plots
-    p = gridplot([[p1], [p2]])
-
-    save(p)
 
 def save_signal_mask_as_png(signal_mask, file_path='signal_mask.png', resolution=300):
     """
@@ -87,6 +46,22 @@ def estimate_center(I0_x, I0_y):
     arg = (abs(I0_x)<2.)&(abs(I0_y)<3.)
     I0_x_mean,I0_y_mean = I0_x[arg].mean(),I0_y[arg].mean() # Mean position
     return I0_x_mean,I0_y_mean
+
+def plot_heatmap_with_roi(ax, data, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
+    # Integrate data over the 0th axis
+    integrated_data = data.mean(axis=0)
+
+    # Create the heatmap
+    im = ax.imshow(integrated_data, cmap='hot', interpolation='nearest',
+                  vmin = np.percentile(integrated_data.ravel(), 10))
+
+    # Create a Rectangle patch
+    rect = patches.Rectangle((roi_y_start, roi_x_start), roi_y_end - roi_y_start, roi_x_end - roi_x_start,
+                             linewidth=5, edgecolor='blue', facecolor='none')
+
+    # Add the patch to the Axes
+    ax.add_patch(rect)
+#     plt.colorbar(im, ax = ax)
 
 parser = argparse.ArgumentParser(description="Process X-ray data.")
 parser.add_argument("run", type=int, help="Experiment run number")
@@ -129,8 +104,10 @@ roi_crop = args.roi_crop
 roi_coordinates = args.roi_coordinates
 roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
 E0 = args.E0
-background_mask_multiple = helpers.background_mask_multiple = args.background_mask_multiple
-separator_thickness = helpers.separator_thickness = args.separator_thickness
+#background_mask_multiple = helpers.background_mask_multiple = args.background_mask_multiple
+#separator_thickness = helpers.separator_thickness = args.separator_thickness
+background_mask_multiple = args.background_mask_multiple
+separator_thickness = args.separator_thickness
 I0_thres = args.I0_thres
 xc = args.xc
 yc = args.yc
@@ -156,15 +133,11 @@ hist_start_bin = 1
 
 cdw_output = CDW_PP(run, exp, h5dir, roi_crop, Energy_Filter, I0_thres, IPM_pos_Filter, Time_bin, TimeTool, las_delay_source, min_count=min_count)
 
-from typing import List, Dict
-
 
 imgs_thresh = extract_stacks_frames([cdw_output['stacks_off']])
 
-from lcls.histogram_analysis import *
+from histogram_analysis import *
 
-from scipy.stats import wasserstein_distance
-from scipy.ndimage import label
 
 data = imgs_thresh#[:7000, ...]#load_data(filepath)
 histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
@@ -181,41 +154,13 @@ res = run_histogram_analysis(
     threshold = threshold)
 signal_mask = res['signal_mask']
 
-## Counting the number of True pixels in the signal mask
-#true_pixels_count = np.sum(signal_mask)
-#
-## Test values for num_pixels
-#num_pixels_exact = true_pixels_count
-#num_pixels_double = 4 * true_pixels_count
-#
-## Running the create_continuous_buffer function with these test values
-#continuous_buffer_exact = histogram_analysis.create_continuous_buffer(signal_mask, num_pixels = num_pixels_exact)
-#continuous_buffer_double = histogram_analysis.create_continuous_buffer(signal_mask, num_pixels = num_pixels_double)
-#
-## Visualizing the results
-#import matplotlib.pyplot as plt
-#
-#fig, axes = plt.subplots(1, 2, figsize=(12, 6))
-#
-## Plotting the result with exact number of pixels
-#axes[0].imshow(continuous_buffer_exact | signal_mask, cmap='gray')
-#axes[0].set_title(f'BG mask (1x: {num_pixels_exact} pixels)')
-#
-## Plotting the result with double the number of pixels
-#axes[1].imshow(continuous_buffer_double | signal_mask, cmap='gray')
-#axes[1].set_title(f'BG mask (4x: {num_pixels_double} pixels)')
-#
-#plt.show()
-#
-#true_pixels_count, continuous_buffer_exact.shape, continuous_buffer_double.shape
-
 compute_signal_mask = pump_probe.compute_signal_mask
 calculate_signal_background_from_histograms = histogram_analysis.calculate_signal_background_from_histograms
 
 best_signal_mask, best_background_mask, best_params, grid_search_results = optimize_signal_mask(
     bin_boundaries, hist_start_bin, roi_coordinates, histograms,
     threshold_lower=args.threshold_lower, threshold_upper=args.threshold_upper, 
-    num_threshold_points=15, background_mask_multiple=args.background_mask_multiple, thickness=args.separator_thickness
+    num_threshold_points=15
 )
 
 signal_mask = erode_to_target(best_signal_mask, min_peak_pixcount)
@@ -227,29 +172,9 @@ cdw_data = pump_probe.generate_plot_data(
 )
 pump_probe.plot_data(cdw_data)
 
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import numpy as np
 
-# TODO cleanup the code below. move the function to the top of the module, where other functions are
 # background_mask = histogram_analysis.create_background_mask(auto_signal_mask, background_mask_multiple, 1.,
 #                                                             separator_thickness=40)
-
-def plot_heatmap_with_roi(ax, data, roi_x_start, roi_x_end, roi_y_start, roi_y_end):
-    # Integrate data over the 0th axis
-    integrated_data = data.mean(axis=0)
-
-    # Create the heatmap
-    im = ax.imshow(integrated_data, cmap='hot', interpolation='nearest',
-                  vmin = np.percentile(integrated_data.ravel(), 10))
-
-    # Create a Rectangle patch
-    rect = patches.Rectangle((roi_y_start, roi_x_start), roi_y_end - roi_y_start, roi_x_end - roi_x_start,
-                             linewidth=5, edgecolor='blue', facecolor='none')
-
-    # Add the patch to the Axes
-    ax.add_patch(rect)
-#     plt.colorbar(im, ax = ax)
 
 # Create a multi-panel plot in a 2x2 layout
 fig, axs = plt.subplots(2, 2, figsize=(10, 10))  # Adjusted for 2x2 layout

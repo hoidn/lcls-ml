@@ -34,18 +34,60 @@ def create_data_array(stacks_on, stacks_off):
     return data
 
 from histogram_analysis import run_histogram_analysis
-
+# TODO signal mask from histograms
 def compute_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, threshold,
-                        background_mask_multiple, thickness, data=None, histograms=None):
+                                data = None, histograms = None):
+    """
+    Computes the signal mask based on the given parameters and threshold.
+
+    :param bin_boundaries: The boundaries for histogram bins.
+    :param hist_start_bin: The starting bin for the histogram.
+    :param roi_coordinates: A tuple of (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
+    :param data: The 3D numpy array containing the data.
+    :param threshold: The threshold value for the analysis.
+    :return: The computed signal mask.
+    """
+    roi_x_start, roi_x_end, roi_y_start, roi_y_end = roi_coordinates
+    res = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries, hist_start_bin=hist_start_bin,
+                                 roi_x_start=roi_x_start, roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
+                                 data=data, threshold=threshold)
+
+    return res['signal_mask']
+
+def run_analysis_and_visualization(cdw_output, bin_boundaries, hist_start_bin, roi_coordinates, background_mask_multiple, threshold,
+                                  data = None, histograms = None):
+    """
+    Top-level function to run analysis and visualization.
+
+    :param cdw_output: Dictionary containing 'stacks_on' and 'stacks_off'.
+    :param bin_boundaries: Boundaries for histogram bins.
+    :param hist_start_bin: The starting bin for the histogram.
+    :param roi_coordinates: ROI coordinates as a tuple (roi_x_start, roi_x_end, roi_y_start, roi_y_end).
+    :param background_mask_multiple: Parameter for the plot_normalized_signal_vs_time_delay function.
+    :param threshold: Threshold value for signal mask calculation.
+    :return: Dictionary capturing the outputs of the plot_normalized_signal_vs_time_delay function.
+    """
     if histograms is None:
-        histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
+        if data is None:
+            # Calculate 'data'
+            data = create_data_array(cdw_output['stacks_on'], cdw_output['stacks_off'])
+        else:
+            # Calculate 'histograms'
+            histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
 
-    signal_mask, background_mask = create_masks(
-        histograms, bin_boundaries, hist_start_bin, roi_coordinates,
-        threshold, background_mask_multiple, thickness
-    )
+    # Run histogram analysis to get the signal mask
+    analysis_results = run_histogram_analysis(histograms=histograms, bin_boundaries=bin_boundaries,
+                                              hist_start_bin=hist_start_bin, roi_x_start=roi_x_start,
+                                              roi_x_end=roi_x_end, roi_y_start=roi_y_start, roi_y_end=roi_y_end,
+                                              threshold=threshold)
+    signal_mask = analysis_results['signal_mask']
 
-    return signal_mask, background_mask
+    # Run the analysis/visualization
+    plot_results = plot_normalized_signal_vs_time_delay(cdw_output, signal_mask,
+                                                        bin_boundaries, hist_start_bin,
+                                                        roi_coordinates, background_mask_multiple)
+
+    return plot_results
 
 def calculate_figure_of_merit(analysis_results):
     """
@@ -119,6 +161,8 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
     best_threshold = None
     best_avg_ratio = float('-inf')
     grid_search_results = []
+    background_mask = None
+    signal_mask = None
 
     for threshold in threshold_range:
         ratios = []
@@ -158,7 +202,7 @@ def optimize_signal_mask(bin_boundaries, hist_start_bin, roi_coordinates, histog
     # Converting grid search results to a numpy array or dict of numpy arrays
     grid_search_results_np = np.array(grid_search_results, dtype=[('threshold', float), ('avg_ratio', float), ('std_dev', float)])
 
-    return best_signal_mask, best_threshold, grid_search_results_np
+    return best_signal_mask, background_mask, best_threshold, grid_search_results_np
 
 # Note: The functions compute_signal_mask and calculate_signal_background_from_histograms need to be predefined as per the user's environment.
 
@@ -185,8 +229,9 @@ def plot_data(data, subplot_spec=None, plot_title='Normalized Signal vs Time Del
     std_dev_off = data['std_dev_off']
     relative_p_values = data['relative_p_values']
 
-    ax1.errorbar(delays_on, norm_signal_on, yerr=std_dev_on, fmt='rs-', label='Laser On: Signal')
-    ax1.errorbar(delays_off, norm_signal_off, yerr=std_dev_off, fmt='ks-', mec='k', mfc='white', alpha=0.2, label='Laser Off: Signal')
+    # TODO why are std_dev nan?
+    ax1.errorbar(delays_on, norm_signal_on, yerr=np.zeros_like(std_dev_on), fmt='rs-', label='Laser On: Signal')
+    ax1.errorbar(delays_off, norm_signal_off, yerr=np.zeros_like(std_dev_off), fmt='ks-', mec='k', mfc='white', alpha=0.2, label='Laser Off: Signal')
     ax1.set_xlabel('Time Delay (ps)')
     ax1.set_ylabel('Normalized Signal')
     ax1.set_title(plot_title)

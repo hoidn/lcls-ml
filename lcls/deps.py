@@ -40,20 +40,20 @@ def memoize_subsampled(func):
 
     return wrapper
 
-def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=True):
-    delays, norm_signals, std_devs = [], [], []
-    for delay, stack in stacks.items():
-        I0_filtered = I0[arg_laser_condition & (binned_delays == delay)]
-        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin, background_mask)
-        if subtract_background:
-            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        else:
-            norm_signal = signal / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
-        delays.append(delay)
-        norm_signals.append(norm_signal)
-        std_devs.append(std_dev)
-    return delays, norm_signals, std_devs
+#def process_stacks(stacks, I0, arg_laser_condition, signal_mask, bin_boundaries, hist_start_bin, binned_delays, background_mask, subtract_background=True):
+#    delays, norm_signals, std_devs = [], [], []
+#    for delay, stack in stacks.items():
+#        I0_filtered = I0[arg_laser_condition & (binned_delays == delay)]
+#        signal, bg, total_var = calculate_signal_background_noI0(stack, signal_mask, bin_boundaries, hist_start_bin, background_mask)
+#        if subtract_background:
+#            norm_signal = (signal - bg) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+#        else:
+#            norm_signal = signal / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+#        std_dev = np.sqrt(total_var) / np.mean(I0_filtered) if np.mean(I0_filtered) != 0 else 0
+#        delays.append(delay)
+#        norm_signals.append(norm_signal)
+#        std_devs.append(std_dev)
+#    return delays, norm_signals, std_devs
 
 def calculate_p_value(signal_on, signal_off, std_dev_on, std_dev_off):
     delta_signal = abs(signal_on - signal_off)
@@ -107,7 +107,6 @@ def calculate_signal_background_noI0(data: np.ndarray, signal_mask: np.ndarray, 
     assert isinstance(bin_boundaries, np.ndarray), "bin_boundaries must be a numpy array"
     assert isinstance(hist_start_bin, int), "hist_start_bin must be an integer"
     assert isinstance(background_mask, np.ndarray), "background_mask must be a numpy array"
-                                     **kwargs):
     local_histograms = calculate_histograms(data, bin_boundaries, hist_start_bin)
     return calculate_signal_background_from_histograms(local_histograms, signal_mask, background_mask, bin_boundaries, hist_start_bin, **kwargs)
 
